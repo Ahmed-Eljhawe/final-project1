@@ -17,7 +17,10 @@ window.SIM = {
 
 window.simURL = (scenario) =>
   `/api/simulate/${scenario}?horizon=${window.SIM.horizon}` +
-  `&adoption_speed=${window.SIM.adoptionSpeed}&country=${window.SIM.country}`;
+  `&adoption_speed=${window.SIM.adoptionSpeed}&country=${window.SIM.country}` +
+  // Pass automation_rate as a percent (5..12) — backend converts /100.
+  // Only sent if user actually moved the slider away from the scenario default.
+  (window.SIM.automationRateOverride ? `&automation_rate=${window.SIM.automationRate}` : '');
 
 /* ── Utility ──────────────────────────────────────────────── */
 const fmt = {
@@ -68,7 +71,9 @@ function updateKPIs(data) {
     'kpi-unem':     fmt.pct(last(data.unemployment)),
     'kpi-gdp':      fmt.gdp(last(data.gdp)),
     'kpi-ai':       fmt.pct(last(data.ai_adoption)),
-    'kpi-accuracy': data.ml_forecast ? fmt.pct(data.ml_forecast.model_accuracy) : '—',
+    'kpi-accuracy': (data.ml_forecast && data.ml_forecast.model_accuracy != null
+                     && !isNaN(data.ml_forecast.model_accuracy))
+                    ? fmt.pct(data.ml_forecast.model_accuracy) : '—',
   };
   for (const [id, val] of Object.entries(kpis)) {
     const el = document.getElementById(id);
@@ -249,6 +254,11 @@ function wireSliders() {
       vl.textContent = key === 'adoptionSpeed' ? v.toFixed(1) + '×' :
                        key === 'automationRate' ? v + '%' : v + ' yr';
       window.SIM[key] = v;
+      // Mark automation rate as "user-overridden" so simURL knows to send it.
+      // Resetting to scenario default (5) clears the override.
+      if (key === 'automationRate') {
+        window.SIM.automationRateOverride = (v !== 5);
+      }
       updateSliderFill(el);
     });
   });
@@ -477,6 +487,84 @@ function createPlayer({ getData, onTick, total }) {
   // at the end (so charts show full curves after Run, then Play "rewinds" and
   // animates). Calling seekTo(0) or seekTo(total-1) from the caller renders.
   return { play, pause, reset, seekTo, render, getState: () => state };
+}
+
+/* ──────────────────────────────────────────────────────────
+ * populateFindings — fill <span data-finding="key">…</span>
+ * placeholders inside Key Findings panels with real numbers
+ * from the simulation result. Any keys not present in `data`
+ * are simply skipped (leaving the placeholder dash).
+ * ────────────────────────────────────────────────────────── */
+function populateFindings(data) {
+  if (!data) return;
+  const find = (k) => document.querySelector(`[data-finding="${k}"]`);
+  const set  = (k, v) => { const el = find(k); if (el) el.textContent = v; };
+  const setAll = (k, v) => {
+    document.querySelectorAll(`[data-finding="${k}"]`).forEach(el => el.textContent = v);
+  };
+
+  const years = data.years || [];
+  const last  = (arr) => arr && arr.length ? arr[arr.length - 1] : null;
+  const first = (arr) => arr && arr.length ? arr[0] : null;
+  const pct   = (n, d=1) => (n == null || isNaN(n)) ? '—' : (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+
+  // Headline numbers
+  if (years.length) {
+    setAll('start-year', years[0]);
+    setAll('end-year',   years[years.length - 1]);
+  }
+
+  if (data.gdp && data.gdp.length) {
+    const g0 = first(data.gdp), gN = last(data.gdp);
+    setAll('gdp-growth', pct(((gN - g0) / g0) * 100, 0));
+    setAll('gdp-start',  '$' + g0.toFixed(1) + 'T');
+    setAll('gdp-end',    '$' + gN.toFixed(1) + 'T');
+  }
+  if (data.unemployment && data.unemployment.length) {
+    setAll('final-unem', last(data.unemployment).toFixed(1) + '%');
+    setAll('start-unem', first(data.unemployment).toFixed(1) + '%');
+    setAll('peak-unem',  Math.max(...data.unemployment).toFixed(1) + '%');
+  }
+  if (data.ai_adoption && data.ai_adoption.length) {
+    setAll('ai-end',   last(data.ai_adoption).toFixed(1));
+    setAll('ai-mid',   data.ai_adoption[Math.min(10, data.ai_adoption.length - 1)].toFixed(1) + '%');
+  }
+  if (data.gini && data.gini.length) {
+    setAll('gini-start', first(data.gini).toFixed(2));
+    setAll('gini-end',   last(data.gini).toFixed(2));
+  }
+
+  // Wage ratio L5/L1 (uses backend wage trajectories)
+  if (data.wages && data.wages.L1_basic && data.wages.L5_expert) {
+    const l1 = last(data.wages.L1_basic);
+    const l5 = last(data.wages.L5_expert);
+    const l1_0 = first(data.wages.L1_basic);
+    const l5_0 = first(data.wages.L5_expert);
+    if (l1 > 0) setAll('wage-ratio', (l5 / l1).toFixed(1));
+    if (l1_0)   setAll('l1-change', pct(((l1 - l1_0) / l1_0) * 100, 0));
+    if (l5_0)   setAll('l5-change', pct(((l5 - l5_0) / l5_0) * 100, 0));
+  }
+
+  // Sector findings
+  if (data.sectors) {
+    const totalFinal = Object.values(data.sectors).reduce((s, arr) => s + last(arr), 0);
+    const svcFinal   = data.sectors.Services ? last(data.sectors.Services) : 0;
+    if (totalFinal > 0 && svcFinal) {
+      setAll('services-share', ((svcFinal / totalFinal) * 100).toFixed(0) + '%');
+    }
+    if (data.sectors.Tech && data.sectors.Manufacturing) {
+      const techGrowth = (last(data.sectors.Tech) - first(data.sectors.Tech)) / first(data.sectors.Tech);
+      const mfgChange  = (last(data.sectors.Manufacturing) - first(data.sectors.Manufacturing)) / first(data.sectors.Manufacturing);
+      setAll('tech-growth', pct(techGrowth * 100, 0));
+      setAll('mfg-change',  pct(mfgChange * 100, 0));
+    }
+  }
+
+  // ML accuracy / MAE (if the simulation response carries the forecast)
+  if (data.ml_forecast && data.ml_forecast.model_mae != null) {
+    setAll('ml-mae',      data.ml_forecast.model_mae.toFixed(2));
+    setAll('ml-accuracy', data.ml_forecast.model_accuracy != null ? data.ml_forecast.model_accuracy.toFixed(1) + '%' : '—');
+  }
 }
 
 // Linear interpolation (used by chart updates in playback)

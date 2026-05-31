@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Scenarios</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -119,11 +119,19 @@
       <span class="source">Source: /api/compare</span>
     </div>
     <ul>
-      <li><strong>Faster adoption → worse unemployment.</strong> The rapid scenario peaks 3–4 pp above slow.</li>
-      <li><strong>But faster adoption → higher GDP.</strong> Productivity gains compound with adoption.</li>
+      <li><strong>Faster adoption → worse unemployment.</strong>
+          Rapid hits <span data-finding="cmp-rapid-unem">—</span>,
+          slow hits <span data-finding="cmp-slow-unem">—</span>
+          — gap of <span data-finding="cmp-unem-gap">—</span> pp.</li>
+      <li><strong>But faster adoption → higher GDP.</strong>
+          Rapid: <span data-finding="cmp-rapid-gdp">—</span> ·
+          Slow: <span data-finding="cmp-slow-gdp">—</span>.</li>
       <li><strong>The trade-off is structural.</strong> Total output rises while job creation lags displacement.</li>
-      <li><strong>Inequality widens with speed.</strong> Rapid pushes Gini higher than slow scenario.</li>
-      <li><strong>All scenarios saturate.</strong> By year 20, adoption nears the same ceiling, just at different speeds.</li>
+      <li><strong>Inequality widens with speed.</strong>
+          Gini reaches <span data-finding="cmp-rapid-gini">—</span> (rapid)
+          vs <span data-finding="cmp-slow-gini">—</span> (slow).</li>
+      <li><strong>Scenarios diverge — they don't all saturate.</strong>
+          Slow caps at 65% adoption; moderate at 92%; rapid at 99%.</li>
       <li><strong>Policy implication.</strong> The speed knob matters more than the existence of AI — pace shapes outcomes.</li>
     </ul>
   </div>
@@ -136,7 +144,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let cUnem, cGDP, cAI, cGini;
 
@@ -153,6 +161,7 @@ async function runScenarios() {
 
     renderCharts(slow, moderate, rapid);
     populateTable(slow, moderate, rapid);
+    populateScenarioFindings(slow, moderate, rapid);
     updateCrumb();
     toast('All 3 scenarios loaded', 'success');
     document.getElementById('status-text').textContent = `Slow · Moderate · Rapid — complete`;
@@ -191,6 +200,22 @@ function renderCharts(slow, mod, rapid) {
     { name: 'Moderate', data: mod.gini },
     { name: 'Rapid',    data: rapid.gini },
   ], years, '', v => (+v).toFixed(3));
+}
+
+function populateScenarioFindings(slow, mod, rapid) {
+  const set = (k, v) => {
+    document.querySelectorAll(`[data-finding="${k}"]`).forEach(el => el.textContent = v);
+  };
+  const lastU  = (s) => s.unemployment[s.unemployment.length - 1];
+  const lastG  = (s) => s.gdp[s.gdp.length - 1];
+  const lastGi = (s) => s.gini[s.gini.length - 1];
+  set('cmp-slow-unem',  lastU(slow).toFixed(1)  + '%');
+  set('cmp-rapid-unem', lastU(rapid).toFixed(1) + '%');
+  set('cmp-unem-gap',   (lastU(rapid) - lastU(slow)).toFixed(1));
+  set('cmp-slow-gdp',   '$' + lastG(slow).toFixed(0) + 'T');
+  set('cmp-rapid-gdp',  '$' + lastG(rapid).toFixed(0) + 'T');
+  set('cmp-slow-gini',  lastGi(slow).toFixed(2));
+  set('cmp-rapid-gini', lastGi(rapid).toFixed(2));
 }
 
 function populateTable(slow, mod, rapid) {

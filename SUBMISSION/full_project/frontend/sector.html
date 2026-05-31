@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Sectors</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -109,12 +109,14 @@
       <span class="source">Source: simulation engine · Frey &amp; Osborne 2013</span>
     </div>
     <ul>
-      <li><strong>Services dominates</strong> (~54% of jobs in the final year).</li>
-      <li><strong>Tech grows fastest</strong> at +6% per year driven by AI productivity.</li>
-      <li><strong>Manufacturing shrinks</strong> the most — highest automation exposure (8%).</li>
+      <li><strong>Services dominates</strong>
+          (<span data-finding="services-share">—</span> of jobs in the final year).</li>
+      <li><strong>Tech</strong> shifts by <span data-finding="tech-growth">—</span> over the horizon
+          (driven by AI productivity and Tech-spillover).</li>
+      <li><strong>Manufacturing</strong> shifts by <span data-finding="mfg-change">—</span> — highest automation exposure (8%).</li>
       <li><strong>Healthcare is resilient</strong> with the lowest automation rate (2%).</li>
-      <li><strong>Tech spillover effect.</strong> 2% of Tech's growth leaks into Services, Healthcare; subtracts from Manufacturing.</li>
-      <li><strong>Risk varies sharply.</strong> Manufacturing 85% vs Tech 12% per Oxford Martin School categories.</li>
+      <li><strong>Tech spillover effect.</strong> 2% of Tech's growth leaks into Services + Healthcare; subtracts from Manufacturing.</li>
+      <li><strong>Risk varies sharply.</strong> Manufacturing 85% vs Tech 12% per Frey &amp; Osborne 2013.</li>
     </ul>
   </div>
 </main>
@@ -126,23 +128,30 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let cLines, cBar, cDonut;
 let player = null;
 let currentData = null;
 const SECTOR_COLORS = ['#2d5a3d','#a8553a','#5e8d73','#c4985a'];
-const RISK = { Tech:0.12, Manufacturing:0.85, Healthcare:0.35, Services:0.77 };
+// Fetched once from /api/sector-risk so the backend is the single source of truth.
+let RISK = { Tech:0.12, Manufacturing:0.85, Healthcare:0.35, Services:0.77 };  // fallback only
 
 async function runSector() {
   showLoading('Analyzing sectors…');
   try {
+    // Pull live sector risks from the backend so we don't duplicate constants
+    try {
+      const r = await apiFetch('/api/sector-risk');
+      if (r && r.risk) RISK = r.risk;
+    } catch (e) { /* keep fallback */ }
     const data = await apiFetch(window.simURL(window.SIM.scenario));
     currentData = data;
     window.SIM.data = data;
     updateKPIs(data);
     renderCharts(data);
     populateRiskTable(data);
+    populateFindings(data);
     injectPlayerMarkup(document.querySelector('.page-header'));
     updateScrubberLabels(data.years);
     initPlayer(data);
@@ -211,19 +220,26 @@ function populateRiskTable(data) {
   const sectors = data.sectors;
   const tbody = document.getElementById('risk-table-body');
   const names = Object.keys(sectors);
+  // Use the scenario's actual automation rate (not a hardcoded 0.05)
+  const autoRate = (data.automation_rate != null) ? data.automation_rate : 0.05;
   tbody.innerHTML = names.map(n => {
-    const finalJobs = sectors[n][sectors[n].length-1];
+    const finalJobs = sectors[n][sectors[n].length - 1];
     const risk = RISK[n] || 0.5;
-    const created = (finalJobs * 0.15 / 1e6).toFixed(2);
-    const net = ((finalJobs * (1 - risk) + finalJobs * 0.15 - finalJobs) / 1e6).toFixed(2);
-    const netColor = parseFloat(net) >= 0 ? 'var(--accent)' : 'var(--danger)';
-    const riskColor = risk > 0.6 ? 'var(--danger)' : risk > 0.3 ? 'var(--warm-2)' : 'var(--accent)';
+    // Realistic, scenario-aware modelling:
+    //   jobsLost    = sector size × per-sector risk × automation_rate
+    //   jobsCreated = jobsLost × JOB_CREATION_RATIO (0.60 in the model)
+    //   net         = created − lost  (always negative since ratio < 1)
+    const jobsLostM    = (finalJobs * risk * autoRate) / 1e6;
+    const jobsCreatedM = jobsLostM * 0.60;
+    const netM         = jobsCreatedM - jobsLostM;
+    const netColor     = netM >= 0 ? 'var(--accent)' : 'var(--danger)';
+    const riskColor    = risk > 0.6 ? 'var(--danger)' : risk > 0.3 ? 'var(--warm-2)' : 'var(--accent)';
     return `<tr>
       <td><strong>${n}</strong></td>
       <td><span style="color:${riskColor}">${(risk*100).toFixed(0)}%</span></td>
-      <td>${(risk*100).toFixed(0)}%</td>
-      <td>${created}M</td>
-      <td style="color:${netColor}">${net}M</td>
+      <td>${jobsLostM.toFixed(2)}M</td>
+      <td>${jobsCreatedM.toFixed(2)}M</td>
+      <td style="color:${netColor}">${netM >= 0 ? '+' : ''}${netM.toFixed(2)}M</td>
     </tr>`;
   }).join('');
 }

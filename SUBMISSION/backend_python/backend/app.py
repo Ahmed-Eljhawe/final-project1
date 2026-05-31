@@ -109,12 +109,29 @@ def root():
 
 @app.get("/api/simulate/{scenario}")
 def simulate(scenario: str, horizon: int = 20,
-             adoption_speed: float = 1.0, country: str = "WLD", export: bool = False):
+             adoption_speed: float = 1.0, country: str = "WLD", export: bool = False,
+             automation_rate: Optional[float] = None):
+    """Run the 20-year simulation.
+
+    Args:
+        scenario:         slow | moderate | rapid (sets base automation rate)
+        horizon:          years to project
+        adoption_speed:   multiplier on S-curve steepness (slider)
+        country:          WB country code
+        export:           if true, also write a CSV file
+        automation_rate:  if given (0..0.20), OVERRIDES the scenario's rate.
+                          E.g., the sidebar "Automation Rate" slider sets this
+                          as a percent (5 → 0.05).
+    """
     if scenario not in {"slow", "moderate", "rapid"}:
         raise HTTPException(400, f"Invalid scenario '{scenario}'. Use slow|moderate|rapid.")
     try:
+        # Sliders typically pass a 1-12 percent value; convert if needed.
+        if automation_rate is not None and automation_rate > 1.0:
+            automation_rate = automation_rate / 100.0
         results = run_scenario(scenario, horizon=horizon,
-                               adoption_speed=adoption_speed, country=country)
+                               adoption_speed=adoption_speed, country=country,
+                               override_rate=automation_rate)
         try:
             results["ml_forecast"] = forecast_unemployment(2025, 2025 + horizon - 1)
         except Exception:
@@ -167,9 +184,15 @@ def sensitivity_endpoint(scenario: str = "moderate", country: str = "WLD"):
 
 
 @app.get("/api/validate")
-def validate_endpoint():
+def validate_endpoint(start: int = 2000, end: int = 2020):
+    """Backtest the model against World Bank data over a configurable range.
+
+    Defaults remain 2000–2020. Frontend can pass ?start=2005&end=2018 etc.
+    """
+    if end <= start:
+        raise HTTPException(400, "end must be after start")
     try:
-        return validate(2000, 2020)
+        return validate(start, end)
     except Exception as e:
         raise HTTPException(500, f"Validation error: {e}")
 
@@ -240,6 +263,25 @@ def models():
 def oxford_risk():
     """Static automation-risk reference table for the AI Impact chart."""
     return OXFORD_RISK_DATA
+
+
+# Per-sector automation risk (used by the Sector Analysis page risk table).
+# Source: Frey & Osborne 2013 — aggregated risk percentages by sector.
+SECTOR_RISK_DATA = {
+    "Tech":          0.12,
+    "Manufacturing": 0.85,
+    "Healthcare":    0.35,
+    "Services":      0.77,
+}
+
+@app.get("/api/sector-risk")
+def sector_risk():
+    """Per-sector automation risk percentages. Single source of truth so the
+    frontend doesn't duplicate constants. Used by sector.html's risk table."""
+    return {
+        "risk":   SECTOR_RISK_DATA,
+        "source": "Frey & Osborne 2013, Oxford Martin School — sector aggregation",
+    }
 
 
 @app.get("/api/oxford-full")

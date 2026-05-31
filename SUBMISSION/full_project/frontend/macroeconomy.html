@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Macroeconomy</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -114,11 +114,16 @@
       <span class="source">Source: simulation engine · BLS-calibrated wages</span>
     </div>
     <ul>
-      <li><strong>GDP grows ~75%</strong> over 20 years driven by AI productivity, despite higher unemployment.</li>
-      <li><strong>Wage bifurcation.</strong> L1 (basic) loses ~15%; L5 (expert) gains ~22%.</li>
-      <li><strong>Gini index rises</strong> from 0.41 → 0.43 in the moderate scenario.</li>
+      <li><strong>GDP grows <span data-finding="gdp-growth">—</span></strong>
+          over 20 years driven by AI productivity, despite unemployment rising to
+          <span data-finding="final-unem">—</span>.</li>
+      <li><strong>Wage bifurcation.</strong>
+          L1 (basic) wages change <span data-finding="l1-change">—</span>;
+          L5 (expert) wages change <span data-finding="l5-change">—</span>.</li>
+      <li><strong>Gini index moves</strong> from <span data-finding="gini-start">—</span>
+          to <span data-finding="gini-end">—</span> in this scenario.</li>
       <li><strong>Consumer spending dampens.</strong> Higher unemployment shrinks the spending ratio of GDP.</li>
-      <li><strong>Productivity is the engine.</strong> 85% productivity boost at full adoption (adoption^0.7 × 0.85).</li>
+      <li><strong>Productivity is the engine.</strong> Adoption-driven boost via <code>1 + adoption^0.7 × 0.85</code>.</li>
       <li><strong>Output-employment decoupling</strong> is the central macroeconomic story.</li>
     </ul>
   </div>
@@ -131,12 +136,13 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let cGDP, cGini, cWages, cSpend;
 let player = null;
 let currentData = null;
-const BASE_WAGES = { L1_basic:33000, L2_semi:49000, L3_intermediate:73000, L4_advanced:115000, L5_expert:200000 };
+// Baseline wages come from the backend in data.wages[tier][0] (the first year).
+// No more hardcoded duplicate — single source of truth lives in simulation.py SKILLS.
 const SKILL_LABELS = { L1_basic:'Basic (L1)', L2_semi:'Semi-skilled (L2)', L3_intermediate:'Intermediate (L3)', L4_advanced:'Advanced (L4)', L5_expert:'Expert (L5)' };
 
 async function runMacro() {
@@ -149,6 +155,7 @@ async function runMacro() {
     document.getElementById('meta-scenario').textContent = window.SIM.scenario;
     renderCharts(data);
     populateWageTable(data);
+    populateFindings(data);
     injectPlayerMarkup(document.querySelector('.page-header'));
     updateScrubberLabels(data.years);
     initPlayer(data);
@@ -203,17 +210,18 @@ function initPlayer(data) {
 
 function populateWageTable(data) {
   const tbody = document.getElementById('wage-table-body');
-  const lastIdx = data.wages[Object.keys(data.wages)[0]].length - 1;
-  tbody.innerHTML = Object.keys(data.wages).map(k => {
+  const tiers = Object.keys(data.wages);
+  const lastIdx = data.wages[tiers[0]].length - 1;
+  tbody.innerHTML = tiers.map(k => {
     const final = data.wages[k][lastIdx];
-    const base  = BASE_WAGES[k] || 50000;
+    const base  = data.wages[k][0];          // ← Year-0 from same dataset
     const delta = final - base;
-    const pct   = ((delta / base) * 100).toFixed(1);
+    const pct   = base ? ((delta / base) * 100).toFixed(1) : '0.0';
     const color = delta >= 0 ? 'var(--accent)' : 'var(--danger)';
     return `<tr>
       <td>${SKILL_LABELS[k]||k}</td>
       <td><strong>$${Math.round(final).toLocaleString()}</strong></td>
-      <td>$${base.toLocaleString()}</td>
+      <td>$${Math.round(base).toLocaleString()}</td>
       <td style="color:${color}">${delta>=0?'+':''}$${Math.round(delta).toLocaleString()}</td>
       <td style="color:${color}">${delta>=0?'+':''}${pct}%</td>
     </tr>`;

@@ -10,6 +10,7 @@ in sequence — read top-to-bottom to follow how each year evolves.
 """
 from __future__ import annotations
 
+import time
 import numpy as np
 import pandas as pd
 import requests
@@ -34,6 +35,12 @@ WORKFORCE_GROWTH   = 0.008           # 0.8 % annual (UN)
 JOB_CREATION_RATIO = 0.60            # new jobs per displaced job (model assumption)
 
 SCENARIO_RATES = {"slow": 0.03, "moderate": 0.05, "rapid": 0.08}
+
+# Per-scenario S-curve speed (multiplies the base k=0.35) and saturation cap.
+# Slow rollouts: gentle curve, plateau before full adoption (regulation, resistance).
+# Rapid rollouts: steep curve, near-total adoption (Big-Tech-led acceleration).
+SCENARIO_SPEED = {"slow": 0.60, "moderate": 1.00, "rapid": 1.50}
+SCENARIO_CAP   = {"slow": 0.65, "moderate": 0.92, "rapid": 0.99}
 
 # Skill tiers — (share_of_workforce, base_wage_usd, ai_risk, wage_pressure).
 # Wages calibrated to BLS OEWS May 2024 national mean annual wages for
@@ -63,9 +70,12 @@ SECTORS: Dict[str, tuple] = {
     "Services":      (0.55, 0.06, 0.02, 0.0),
 }
 
-# Per-country baseline cache: {country_code: {jobs, workforce, gdp, sectors}}.
+# Per-country baseline cache: {country_code: {jobs, workforce, gdp, sectors, _cached_at}}.
 # Filled lazily on first request — see `get_country_baseline`.
+# Entries expire after _BASELINE_CACHE_TTL seconds so stale World Bank data
+# eventually gets refreshed (the WB updates indicators a few times a year).
 _BASELINE_CACHE: Dict[str, Dict[str, Any]] = {}
+_BASELINE_CACHE_TTL = 6 * 60 * 60   # 6 hours
 
 
 # ─────────────────────────────────────────────
@@ -142,11 +152,18 @@ def fetch_world_bank_sectors(country: str = "WLD") -> Dict[str, float]:
 
 
 def get_country_baseline(country: str = "WLD") -> Dict[str, Any]:
-    """Cached per-country baseline (employment, workforce, gdp, sector shares)."""
-    if country in _BASELINE_CACHE:
-        return _BASELINE_CACHE[country]
+    """Cached per-country baseline (employment, workforce, gdp, sector shares).
+
+    Cached entries expire after `_BASELINE_CACHE_TTL` seconds to avoid serving
+    stale World Bank data for the lifetime of the uvicorn process.
+    """
+    now = time.time()
+    cached = _BASELINE_CACHE.get(country)
+    if cached and (now - cached.get("_cached_at", 0)) < _BASELINE_CACHE_TTL:
+        return cached
     base = fetch_world_bank_baseline(country)
-    base["sectors"] = fetch_world_bank_sectors(country)
+    base["sectors"]    = fetch_world_bank_sectors(country)
+    base["_cached_at"] = now
     _BASELINE_CACHE[country] = base
     return base
 
@@ -155,10 +172,18 @@ def get_country_baseline(country: str = "WLD") -> Dict[str, Any]:
 # CORE MATH
 # ─────────────────────────────────────────────
 
-def ai_adoption(year_index: int, speed: float = 1.0) -> float:
-    """Logistic S-curve, midpoint at year 10, returns 0..1."""
+def ai_adoption(year_index: int, speed: float = 1.0, cap: float = 1.0) -> float:
+    """Logistic S-curve, midpoint at year 10, multiplied by a saturation cap.
+
+    Args:
+        year_index: years since BASE_YEAR (0-indexed)
+        speed:      multiplies the base steepness k=0.35
+        cap:        maximum adoption value (0..1). Slow scenarios cap below 1.0
+                    to reflect industry resistance / regulatory friction.
+    """
     k = 0.35 * speed
-    return 1.0 / (1.0 + np.exp(-k * (year_index - 10.0)))
+    raw = 1.0 / (1.0 + np.exp(-k * (year_index - 10.0)))
+    return raw * cap
 
 
 def initial_state(country: str = "WLD") -> Dict[str, float]:
@@ -173,9 +198,9 @@ def initial_state(country: str = "WLD") -> Dict[str, float]:
 
 
 def step_year(state: Dict[str, float], year_index: int,
-              auto_rate: float, speed: float) -> Dict[str, float]:
+              auto_rate: float, speed: float, cap: float = 1.0) -> Dict[str, float]:
     """Advance the macro state by one year. Mutates `state` in place."""
-    state["ai_adoption"] = ai_adoption(year_index, speed)
+    state["ai_adoption"] = ai_adoption(year_index, speed, cap)
     adoption = state["ai_adoption"]
 
     jobs_lost    = state["total_jobs"] * auto_rate * adoption
@@ -253,6 +278,10 @@ def run_scenario(scenario: str = "moderate", horizon: int = 20,
                  country: str = "WLD") -> Dict[str, Any]:
     """Run a full N-year simulation and return a JSON-ready results dict."""
     auto_rate = override_rate if override_rate is not None else SCENARIO_RATES.get(scenario, 0.05)
+    # Scenario-specific S-curve characteristics (the user's adoption_speed
+    # slider further multiplies the scenario's base speed).
+    scenario_speed = SCENARIO_SPEED.get(scenario, 1.0) * adoption_speed
+    scenario_cap   = SCENARIO_CAP.get(scenario, 1.0)
     state = initial_state(country)
 
     results: Dict[str, Any] = {
@@ -273,7 +302,7 @@ def run_scenario(scenario: str = "moderate", horizon: int = 20,
     }
 
     for i in range(horizon):
-        step    = step_year(state, i, auto_rate, adoption_speed)
+        step    = step_year(state, i, auto_rate, scenario_speed, scenario_cap)
         skills  = skill_breakdown(state)
         sectors = sector_breakdown(state, auto_rate)
         wages   = wages_by_skill(state["ai_adoption"])
@@ -314,11 +343,12 @@ def monte_carlo(n_simulations: int = 1000, horizon: int = 20) -> Dict[str, Any]:
     for sim in range(n_simulations):
         auto_rate = rng.uniform(0.02, 0.10)
         speed     = rng.uniform(0.60, 1.50)
+        cap       = rng.uniform(0.65, 0.99)  # vary saturation too
         state     = initial_state("WLD")
         state["total_jobs"] *= rng.uniform(0.95, 1.05)
         state["workforce"]  *= rng.uniform(0.95, 1.05)
         for i in range(horizon):
-            step = step_year(state, i, auto_rate, speed)
+            step = step_year(state, i, auto_rate, speed, cap)
             unem_matrix[sim, i] = step["unem"] * 100
             gdp_matrix[sim, i]  = step["gdp"]
 
@@ -400,20 +430,40 @@ def fetch_world_bank_unemployment(start: int = 2000, end: int = 2020) -> Dict[st
 
 
 def validate(start: int = 2000, end: int = 2020) -> Dict[str, Any]:
-    """Backtest: run the model from `start` and compare against real unemployment."""
+    """Backtest: run the model from `start` and compare against real unemployment.
+
+    Uses historically-grounded 2000 baseline numbers:
+      • World labor force in 2000: ~2.7 billion (WB SL.TLF.TOTL.IN)
+      • Unemployment rate 2000: 5.4% → employment ≈ 2.554 billion
+    Previously used 120M/130M which was off by ~23×, producing absurd
+    predictions (~24% unemployment vs actual ~6%).
+    """
     real = fetch_world_bank_unemployment(start, end)
     actual = real["values"]
     years  = real["years"]
 
-    state = {"total_jobs": 120_000_000.0, "workforce": 130_000_000.0, "ai_adoption": 0.01}
+    # Historically-grounded baseline (calibrated to year=`start`).
+    # If start != 2000, scale gently — workforce grew ~0.8%/yr.
+    years_offset = max(0, start - 2000)
+    base_workforce = 2_700_000_000.0 * ((1.0 + WORKFORCE_GROWTH) ** years_offset)
+    base_employment = base_workforce * (1.0 - (actual[0] if actual else 5.4) / 100.0)
+
+    state = {
+        "total_jobs":  base_employment,
+        "workforce":   base_workforce,
+        "ai_adoption": 0.01,
+    }
     predicted = []
     for i, _ in enumerate(years):
-        # Historical AI adoption was tiny — dampen the S-curve.
-        state["ai_adoption"] = ai_adoption(i, speed=0.8) * 0.5
+        # Historical AI adoption was effectively zero pre-2010 and only
+        # ~5% by 2020. Very strong dampening to reflect that reality.
+        state["ai_adoption"] = ai_adoption(i, speed=0.6) * 0.15
         adoption = state["ai_adoption"]
         lost     = state["total_jobs"] * 0.05 * adoption
         created  = lost * JOB_CREATION_RATIO
-        state["total_jobs"] = max(0.0, state["total_jobs"] - lost + created)
+        # Add natural (non-AI) job creation tracking workforce growth.
+        natural_growth = state["total_jobs"] * WORKFORCE_GROWTH * 0.97
+        state["total_jobs"] = max(0.0, state["total_jobs"] - lost + created + natural_growth)
         state["workforce"] *= (1.0 + WORKFORCE_GROWTH)
         unem = max(0.0, (state["workforce"] - state["total_jobs"]) / state["workforce"]) * 100
         predicted.append(round(unem, 2))

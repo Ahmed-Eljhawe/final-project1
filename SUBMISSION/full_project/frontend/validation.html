@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Validation</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -40,8 +40,8 @@
       <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
     </div>
     <div class="ctrl-group">
-      <label>Monte Carlo Runs <span id="val-automation">1000</span></label>
-      <input type="range" id="slider-automation" min="100" max="3000" step="100" value="1000"/>
+      <label>Monte Carlo Runs <span id="val-mc-runs">1000</span></label>
+      <input type="range" id="slider-mc-runs" min="100" max="3000" step="100" value="1000"/>
     </div>
     <div class="ctrl-group">
       <label>Horizon <span id="val-horizon">20 yr</span></label>
@@ -54,10 +54,10 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">Validation &amp; Confidence</h1>
-      <p class="page-subtitle">Backtest 2000–2020 · Monte Carlo 95% CI · Sensitivity analysis · Arabic AI advisory report</p>
+      <p class="page-subtitle">Backtest · Monte Carlo 95% CI · Sensitivity analysis · Arabic AI advisory report</p>
     </div>
     <div class="page-meta">
-      <div class="item"><span class="k">Backtest period</span><span class="v">2000–2020</span></div>
+      <div class="item"><span class="k">Backtest period</span><span class="v" id="meta-backtest-range">—</span></div>
       <div class="item"><span class="k">Validation source</span><span class="v">WB SL.UEM.TOTL.ZS</span></div>
     </div>
   </div>
@@ -67,7 +67,7 @@
     <div class="kpi-card" style="--kpi-color:var(--danger)"><div class="kpi-label">Unemployment</div><div class="kpi-value" id="kpi-unem">—</div><div class="kpi-sub">% of workforce</div></div>
     <div class="kpi-card" style="--kpi-color:var(--warm)"><div class="kpi-label">GDP</div><div class="kpi-value" id="kpi-gdp">—</div><div class="kpi-sub">Trillion USD</div></div>
     <div class="kpi-card" style="--kpi-color:var(--accent-dark)"><div class="kpi-label">AI Adoption</div><div class="kpi-value" id="kpi-ai">—</div><div class="kpi-sub">% economy-wide</div></div>
-    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">Validation Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub">2000–2020 backtest</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">Validation Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub" id="kpi-accuracy-sub">— backtest</div></div>
   </div>
 
   <div class="btn-row">
@@ -90,7 +90,7 @@
 
   <div class="chart-grid cols-1">
     <div class="chart-card full-width">
-      <div class="chart-title">Model Validation — Predicted vs Actual Unemployment (2000–2020)</div>
+      <div class="chart-title">Model Validation — Predicted vs Actual Unemployment <span id="chart-val-range">(—)</span></div>
       <div class="chart-subtitle">World Bank historical data vs model backtest · Figure 1</div>
       <div class="chart-container tall" id="chart-validation"></div>
     </div>
@@ -140,7 +140,7 @@
       <span class="source">Source: /api/validate · /api/monte-carlo · /api/sensitivity</span>
     </div>
     <ul>
-      <li><strong>Backtest validates the model.</strong> Predicted vs actual 2000–2020 unemployment matches with low MAE.</li>
+      <li><strong>Backtest validates the model.</strong> Predicted vs actual historical unemployment matches with low MAE.</li>
       <li><strong>Monte Carlo</strong> reports a 95% confidence band — 1000 runs with randomized parameters.</li>
       <li><strong>Sensitivity</strong> identifies which inputs matter most (automation rate vs adoption speed).</li>
       <li><strong>Reproducible.</strong> Monte Carlo seeded with RNG 42; identical runs reproduce same numbers.</li>
@@ -157,12 +157,12 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let cVal, cMC;
 
 async function runValidation() {
-  showLoading('Running backtest 2000–2020…');
+  showLoading('Running backtest…');
   try {
     const [valData, simData] = await Promise.all([
       apiFetch('/api/validate'),
@@ -172,6 +172,18 @@ async function runValidation() {
     updateKPIs(simData);
     const kpiAcc = document.getElementById('kpi-accuracy');
     if (kpiAcc) kpiAcc.textContent = valData.accuracy + '%';
+
+    // Dynamic backtest range labels (no more hardcoded "2000–2020")
+    const range = (valData.years && valData.years.length)
+                  ? `${valData.years[0]}–${valData.years[valData.years.length-1]}`
+                  : '—';
+    const elRange   = document.getElementById('meta-backtest-range');
+    const elSub     = document.getElementById('kpi-accuracy-sub');
+    const elChartR  = document.getElementById('chart-val-range');
+    if (elRange)  elRange.textContent  = range;
+    if (elSub)    elSub.textContent    = range + ' backtest';
+    if (elChartR) elChartR.textContent = `(${range})`;
+
     renderValidationChart(valData);
     renderMetricPills(valData);
     loadSensitivity();
@@ -222,16 +234,19 @@ function renderValidationChart(data) {
 }
 
 function renderMetricPills(data) {
+  const range = (data.years && data.years.length)
+                ? `${data.years[0]}–${data.years[data.years.length-1]}`
+                : '—';
   document.getElementById('metric-pills').innerHTML = `
     <div class="metric-pill">MAE <span>${data.mae}</span></div>
     <div class="metric-pill">Accuracy <span>${data.accuracy}%</span></div>
-    <div class="metric-pill">Period <span>2000–2020</span></div>
+    <div class="metric-pill">Period <span>${range}</span></div>
     <div class="metric-pill">Source <span>World Bank</span></div>
   `;
 }
 
 async function runMonteCarlo() {
-  const nSims = parseInt(document.getElementById('slider-automation').value) || 1000;
+  const nSims = parseInt(document.getElementById('slider-mc-runs').value) || 1000;
   showLoading(`Running ${nSims} Monte Carlo iterations…`);
   document.getElementById('mc-subtitle').textContent =
     `${nSims} random iterations · shaded band = 2.5th–97.5th percentile · Figure 2`;
@@ -304,11 +319,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sl = document.getElementById('slider-automation');
-  const vl = document.getElementById('val-automation');
+  // Monte Carlo runs slider — dedicated ID so wireSliders() doesn't conflate
+  // it with the sidebar's "automationRate" slider on other pages.
+  const sl = document.getElementById('slider-mc-runs');
+  const vl = document.getElementById('val-mc-runs');
   if (sl && vl) {
-    sl.addEventListener('input', () => { vl.textContent = sl.value; });
+    sl.addEventListener('input', () => {
+      vl.textContent = sl.value;
+      if (typeof updateSliderFill === 'function') updateSliderFill(sl);
+    });
     vl.textContent = sl.value;
+    if (typeof updateSliderFill === 'function') updateSliderFill(sl);
   }
   loadModels();
   runValidation();

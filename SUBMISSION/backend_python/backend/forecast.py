@@ -32,14 +32,30 @@ def _build_features(years: list, values: list) -> pd.DataFrame:
 
 
 def train() -> Dict[str, Any]:
+    """Train RandomForest with proper time-series train/test split.
+
+    The previous version measured MAE on the same data the model was trained on
+    (in-sample), which is overfitting and gives misleadingly low error. Now we
+    hold out the last 5 years (~20% of the 25-year series) as a TEST set and
+    report MAE on that. The final model is retrained on the full series so that
+    forecasts use all available history.
+    """
     raw = fetch_world_bank_unemployment(2000, 2024)
     df  = _build_features(raw["years"], raw["values"])
 
     X = df[FEATURE_COLS].values
     y = df["unemployment_rate"].values
 
+    # Time-series split: last 5 rows = held-out test set.
+    n = len(df)
+    split = max(1, n - 5)
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+
+    # Fit scaler on train only, then transform both.
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s  = scaler.transform(X_test) if len(X_test) else X_train_s[:0]
 
     model = RandomForestRegressor(
         n_estimators=200,
@@ -48,15 +64,26 @@ def train() -> Dict[str, Any]:
         random_state=42,
         n_jobs=-1,
     )
-    model.fit(X_scaled, y)
-    mae = mean_absolute_error(y, model.predict(X_scaled))
+    model.fit(X_train_s, y_train)
+
+    # Honest out-of-sample MAE on held-out years
+    if len(X_test):
+        mae_test = mean_absolute_error(y_test, model.predict(X_test_s))
+    else:
+        mae_test = mean_absolute_error(y_train, model.predict(X_train_s))
+
+    # Retrain on full series so forecasts use every available data point
+    X_all_s = scaler.fit_transform(X)
+    model.fit(X_all_s, y)
 
     return {
-        "model":    model,
-        "scaler":   scaler,
-        "mae":      round(float(mae), 4),
-        "accuracy": round(max(0.0, 100.0 - mae * 10.0), 2),
+        "model":     model,
+        "scaler":    scaler,
+        "mae":       round(float(mae_test), 4),  # honest, held-out MAE
+        "accuracy":  round(max(0.0, 100.0 - mae_test * 10.0), 2),
         "base_year": int(df["year"].min()),
+        "test_years": int(len(X_test)),  # how many years were held out
+        "train_years": int(len(X_train)),
     }
 
 

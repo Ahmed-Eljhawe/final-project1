@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Overview</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -168,12 +168,19 @@
       <span class="source">Source: AI Labor Sim v2.0 · World Bank baseline · 2024 OEWS wages</span>
     </div>
     <ul>
-      <li><strong>Output grows, employment falls.</strong> GDP rises while jobs decrease — productivity captures the gains.</li>
-      <li><strong>Inequality widens.</strong> Gini index rises; L5/L1 wage ratio expands.</li>
-      <li><strong>Adoption follows an S-curve.</strong> Logistic midpoint at year 10; saturation near year 20.</li>
+      <li><strong>Output grows, employment falls.</strong>
+          GDP rises <span data-finding="gdp-growth">—</span> while unemployment reaches
+          <span data-finding="final-unem">—</span> by <span data-finding="end-year">2046</span>.</li>
+      <li><strong>Inequality widens.</strong>
+          Gini moves from <span data-finding="gini-start">—</span> to
+          <span data-finding="gini-end">—</span>; L5/L1 wage ratio expands to
+          <span data-finding="wage-ratio">—</span>×.</li>
+      <li><strong>Adoption follows an S-curve.</strong> Logistic midpoint at year 10; saturation reaches
+          <span data-finding="ai-end">—</span>% under this scenario's cap.</li>
       <li><strong>Job creation only partially offsets loss.</strong> 0.6 new jobs per 1 displaced — net negative.</li>
       <li><strong>Sectoral asymmetry.</strong> Tech grows; Manufacturing shrinks under automation exposure.</li>
-      <li><strong>Validated against 2000–2020</strong> World Bank unemployment data via the RandomForest backtest.</li>
+      <li><strong>Validated against historical data</strong> with held-out test MAE of
+          <span data-finding="ml-mae">—</span> pp via RandomForest backtest.</li>
     </ul>
   </div>
 
@@ -186,7 +193,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let chartUnem, chartGDP, chartSkills, chartSector;
 let player = null;
@@ -208,6 +215,7 @@ async function runSimulation() {
 
     initCharts(data);
     initPlayer(data);
+    populateFindings(data);
     updateCrumb();
 
     toast(`Simulation complete — ${window.SIM.scenario.toUpperCase()} scenario`, 'success');

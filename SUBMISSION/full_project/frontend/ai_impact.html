@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — AI Impact</title>
-<link rel="stylesheet" href="style.css?v=12"/>
+<link rel="stylesheet" href="style.css?v=14"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -99,8 +99,8 @@
       <div class="chart-container" id="chart-jobs-delta"></div>
     </div>
     <div class="chart-card">
-      <div class="chart-title">Adoption Speed Comparison</div>
-      <div class="chart-subtitle">Slow (0.6×) · Baseline (1×) · Fast (1.5×) · Figure 5</div>
+      <div class="chart-title">S-Curve Shape vs Speed</div>
+      <div class="chart-subtitle">Speed multipliers 0.6× / 1× / 1.5× with scenario caps applied (slow 65% · moderate 92% · rapid 99%) · Figure 5</div>
       <div class="chart-container" id="chart-speed-compare"></div>
     </div>
   </div>
@@ -111,9 +111,14 @@
       <span class="source">Source: ai_adoption() S-curve · Frey &amp; Osborne 2013</span>
     </div>
     <ul>
-      <li><strong>Logistic S-curve.</strong> 1 / (1 + e^(-k × (year − 10))) with k = 0.35 × speed.</li>
-      <li><strong>Midpoint at year 10.</strong> 50% adoption by 2036; ~97% by 2046.</li>
-      <li><strong>Productivity gains compound.</strong> +85% at full adoption (adoption^0.7 × 0.85).</li>
+      <li><strong>Logistic S-curve.</strong>
+          <code>cap × 1 / (1 + e^(-k × (year − 10)))</code> with k = 0.35 × speed.
+          Scenario caps: slow 65%, moderate 92%, rapid 99%.</li>
+      <li><strong>Midpoint at year 10.</strong>
+          Adoption reaches <span data-finding="ai-mid">—</span> by year 10
+          and saturates at <span data-finding="ai-end">—</span>% under this scenario's cap.</li>
+      <li><strong>Productivity gains compound.</strong>
+          Boost formula <code>1 + adoption^0.7 × 0.85</code>.</li>
       <li><strong>Clerical, transport, retail</strong> have the highest automation risk (90%+).</li>
       <li><strong>Creative + management</strong> are most resilient (under 20%).</li>
       <li><strong>Job creation ratio = 0.6.</strong> Per 100 jobs lost, only 60 new ones created.</li>
@@ -128,7 +133,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=12"></script>
+<script src="app.js?v=14"></script>
 <script>
 let cSCurve, cProd, cOxford, cDelta, cSpeed;
 let player = null;
@@ -148,6 +153,7 @@ async function runAIPage() {
     window.SIM.data = data;
     updateKPIs(data);
     renderCharts(data);
+    populateFindings(data);
     injectPlayerMarkup(document.querySelector('.page-header'));
     updateScrubberLabels(data.years);
     initPlayer(data);
@@ -161,8 +167,11 @@ async function runAIPage() {
 function initPlayer(data) {
   if (player) { player.seekTo(data.years.length - 1); return; }
   const prod = productivityFromAdoption(data.ai_adoption);
+  // Use the scenario's actual automation rate + actual per-year total jobs
+  // (no hardcoded 0.05 or 150e6 fallback that ignores the scenario).
+  const autoRate = (data.automation_rate != null) ? data.automation_rate : 0.05;
   const jobsLost = data.ai_adoption.map((a, i) =>
-    +((data.total_jobs[i] || 150e6) * 0.05 * (a/100) / 1e6).toFixed(2));
+    +((data.total_jobs[i] || 0) * autoRate * (a/100) / 1e6).toFixed(2));
   const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
 
   player = createPlayer({
@@ -190,10 +199,13 @@ function initPlayer(data) {
   requestAnimationFrame(() => player.seekTo(data.years.length - 1));
 }
 
-function sCurve(n, speed) {
+// Speed-comparison curves now apply the per-scenario cap so the chart matches
+// what the real model produces. cap is the saturation ceiling (0..1).
+function sCurve(n, speed, cap = 1.0) {
   return Array.from({length:n}, (_, i) => {
     const k = 0.35 * speed, x0 = 10;
-    return +(100 / (1 + Math.exp(-k * (i - x0)))).toFixed(2);
+    const raw = 100 / (1 + Math.exp(-k * (i - x0)));
+    return +(raw * cap).toFixed(2);
   });
 }
 function productivityFromAdoption(adoption) {
@@ -217,8 +229,11 @@ function renderCharts(data) {
     OXFORD_JOBS, '',
     { height: 320, colors: ['#2d5a3d'], showLegend: false });
 
+  // Use the scenario's actual automation rate + actual per-year total jobs
+  // (no hardcoded 0.05 or 150e6 fallback that ignores the scenario).
+  const autoRate = (data.automation_rate != null) ? data.automation_rate : 0.05;
   const jobsLost = data.ai_adoption.map((a, i) =>
-    +((data.total_jobs[i] || 150e6) * 0.05 * (a/100) / 1e6).toFixed(2));
+    +((data.total_jobs[i] || 0) * autoRate * (a/100) / 1e6).toFixed(2));
   const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
   if (cDelta) cDelta.destroy();
   cDelta = barChart('chart-jobs-delta', [
@@ -229,9 +244,9 @@ function renderCharts(data) {
 
   if (cSpeed) cSpeed.destroy();
   cSpeed = lineChart('chart-speed-compare', [
-    { name:'Slow (0.6×)',   data: sCurve(n, 0.6) },
-    { name:'Baseline (1×)', data: sCurve(n, 1.0) },
-    { name:'Fast (1.5×)',   data: sCurve(n, 1.5) },
+    { name:'Slow (0.6× · cap 65%)',   data: sCurve(n, 0.6, 0.65) },
+    { name:'Moderate (1× · cap 92%)', data: sCurve(n, 1.0, 0.92) },
+    { name:'Rapid (1.5× · cap 99%)',  data: sCurve(n, 1.5, 0.99) },
   ], years, '', v => v + '%');
 }
 
