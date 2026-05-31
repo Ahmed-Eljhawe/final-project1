@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Labor Market Simulation — Scenarios</title>
+<link rel="stylesheet" href="style.css?v=12"/>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark"></span>AI Labor Market Simulation</div>
+  <div class="crumb"><span class="val">Scenarios</span><span class="sep">/</span><span id="crumb-state"></span></div>
+  <div class="right"><span class="status">Live · WB API</span></div>
+</div>
+
+<div class="app-layout">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">AI Labor Sim</div>
+    <div class="logo-sub">2026 — 2046</div>
+  </div>
+  <div class="nav-section-label">Sections</div>
+  <a class="nav-link" href="index.html"><span class="nav-icon">01</span>Overview</a>
+  <a class="nav-link" href="sector.html"><span class="nav-icon">02</span>Sector Analysis</a>
+  <a class="nav-link" href="ai_impact.html"><span class="nav-icon">03</span>AI Impact</a>
+  <a class="nav-link" href="macroeconomy.html"><span class="nav-icon">04</span>Macroeconomy</a>
+  <a class="nav-link active" href="scenarios.html"><span class="nav-icon">05</span>Scenarios</a>
+  <a class="nav-link" href="validation.html"><span class="nav-icon">06</span>Validation</a>
+
+  <div class="sidebar-controls">
+    <div class="ctrl-label">Parameters</div>
+    <div class="ctrl-group">
+      <label>AI Adoption Speed <span id="val-ai">1.0×</span></label>
+      <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Horizon <span id="val-horizon">20 yr</span></label>
+      <input type="range" id="slider-horizon" min="5" max="30" step="5" value="20"/>
+    </div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Scenario Comparison</h1>
+      <p class="page-subtitle">Side-by-side projection of Slow (3%), Moderate (5%), and Rapid (8%) AI-automation scenarios.</p>
+    </div>
+    <div class="page-meta">
+      <div class="item"><span class="k">Endpoint</span><span class="v">/api/compare</span></div>
+      <div class="item"><span class="k">Country</span><span class="v" id="meta-country">WLD</span></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Total Jobs (Moderate)</div><div class="kpi-value" id="kpi-jobs">—</div><div class="kpi-sub">Final year</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--danger)"><div class="kpi-label">Unemployment (Mod.)</div><div class="kpi-value" id="kpi-unem">—</div><div class="kpi-sub">% of workforce</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--warm)"><div class="kpi-label">GDP (Moderate)</div><div class="kpi-value" id="kpi-gdp">—</div><div class="kpi-sub">Trillion USD</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-dark)"><div class="kpi-label">AI Adoption (Mod.)</div><div class="kpi-value" id="kpi-ai">—</div><div class="kpi-sub">% economy-wide</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">ML Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub">Backtest</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="run-btn" onclick="runScenarios()">▸ Compare All Scenarios</button>
+    <span id="status-text" style="font-size:.78rem;color:var(--muted)">Runs slow, moderate, and rapid in one call.</span>
+  </div>
+
+  <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap">
+    <span class="badge badge-slow">Slow — 3%/yr</span>
+    <span class="badge badge-moderate">Moderate — 5%/yr</span>
+    <span class="badge badge-rapid">Rapid — 8%/yr</span>
+  </div>
+
+  <div class="chart-grid cols-1">
+    <div class="chart-card full-width">
+      <div class="chart-title">Unemployment Rate — All 3 Scenarios</div>
+      <div class="chart-subtitle">Comparative impact of AI rollout speed on unemployment · Figure 1</div>
+      <div class="chart-container tall" id="chart-scenario-unem"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cols-1">
+    <div class="chart-card full-width">
+      <div class="chart-title">GDP Trajectory — All 3 Scenarios</div>
+      <div class="chart-subtitle">Output divergence across automation speeds · Figure 2</div>
+      <div class="chart-container tall" id="chart-scenario-gdp"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">AI Adoption</div>
+      <div class="chart-subtitle">S-curve progression by scenario · Figure 3</div>
+      <div class="chart-container" id="chart-scenario-ai"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Gini Inequality</div>
+      <div class="chart-subtitle">Income inequality divergence · Figure 4</div>
+      <div class="chart-container" id="chart-scenario-gini"></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:1rem">
+    <div class="chart-title">Final-Year Comparison</div>
+    <div class="chart-subtitle">Key metrics at year 20 across all 3 scenarios</div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Metric</th><th><span class="badge badge-slow">Slow</span></th><th><span class="badge badge-moderate">Moderate</span></th><th><span class="badge badge-rapid">Rapid</span></th></tr>
+      </thead>
+      <tbody id="compare-table"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Run to populate…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="findings">
+    <div class="findings-head">
+      <h3>Key Findings — Presentation Notes</h3>
+      <span class="source">Source: /api/compare</span>
+    </div>
+    <ul>
+      <li><strong>Faster adoption → worse unemployment.</strong> The rapid scenario peaks 3–4 pp above slow.</li>
+      <li><strong>But faster adoption → higher GDP.</strong> Productivity gains compound with adoption.</li>
+      <li><strong>The trade-off is structural.</strong> Total output rises while job creation lags displacement.</li>
+      <li><strong>Inequality widens with speed.</strong> Rapid pushes Gini higher than slow scenario.</li>
+      <li><strong>All scenarios saturate.</strong> By year 20, adoption nears the same ceiling, just at different speeds.</li>
+      <li><strong>Policy implication.</strong> The speed knob matters more than the existence of AI — pace shapes outcomes.</li>
+    </ul>
+  </div>
+</main>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Running 3 scenarios…</div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=12"></script>
+<script>
+let cUnem, cGDP, cAI, cGini;
+
+async function runScenarios() {
+  showLoading('Running all 3 scenarios…');
+  document.getElementById('status-text').textContent = 'Fetching slow + moderate + rapid…';
+  try {
+    const all = await apiFetch(`/api/compare?horizon=${window.SIM.horizon}&adoption_speed=${window.SIM.adoptionSpeed}&country=${window.SIM.country}`);
+    const { slow, moderate, rapid } = all;
+
+    window.SIM.data = moderate;
+    updateKPIs(moderate);
+    document.getElementById('meta-country').textContent = window.SIM.country;
+
+    renderCharts(slow, moderate, rapid);
+    populateTable(slow, moderate, rapid);
+    updateCrumb();
+    toast('All 3 scenarios loaded', 'success');
+    document.getElementById('status-text').textContent = `Slow · Moderate · Rapid — complete`;
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    document.getElementById('status-text').textContent = 'Error — see console';
+  } finally { hideLoading(); }
+}
+
+function renderCharts(slow, mod, rapid) {
+  const years = mod.years;
+  if (cUnem) cUnem.destroy();
+  cUnem = lineChart('chart-scenario-unem', [
+    { name: 'Slow',     data: slow.unemployment },
+    { name: 'Moderate', data: mod.unemployment },
+    { name: 'Rapid',    data: rapid.unemployment },
+  ], years, '', v => v + '%', { height: 320 });
+
+  if (cGDP) cGDP.destroy();
+  cGDP = lineChart('chart-scenario-gdp', [
+    { name: 'Slow',     data: slow.gdp },
+    { name: 'Moderate', data: mod.gdp },
+    { name: 'Rapid',    data: rapid.gdp },
+  ], years, '', v => '$' + v + 'T', { height: 320 });
+
+  if (cAI) cAI.destroy();
+  cAI = lineChart('chart-scenario-ai', [
+    { name: 'Slow',     data: slow.ai_adoption },
+    { name: 'Moderate', data: mod.ai_adoption },
+    { name: 'Rapid',    data: rapid.ai_adoption },
+  ], years, '', v => v + '%');
+
+  if (cGini) cGini.destroy();
+  cGini = lineChart('chart-scenario-gini', [
+    { name: 'Slow',     data: slow.gini },
+    { name: 'Moderate', data: mod.gini },
+    { name: 'Rapid',    data: rapid.gini },
+  ], years, '', v => (+v).toFixed(3));
+}
+
+function populateTable(slow, mod, rapid) {
+  const last = (a) => a && a.length ? a[a.length-1] : '—';
+  const rows = [
+    ['Unemployment %',  last(slow.unemployment)+'%', last(mod.unemployment)+'%', last(rapid.unemployment)+'%'],
+    ['GDP (T$)',         '$'+last(slow.gdp)+'T',     '$'+last(mod.gdp)+'T',     '$'+last(rapid.gdp)+'T'],
+    ['AI Adoption %',    last(slow.ai_adoption)+'%', last(mod.ai_adoption)+'%', last(rapid.ai_adoption)+'%'],
+    ['Gini',             last(slow.gini),            last(mod.gini),            last(rapid.gini)],
+    ['Total Jobs',       fmt.jobs(last(slow.total_jobs)), fmt.jobs(last(mod.total_jobs)), fmt.jobs(last(rapid.total_jobs))],
+  ];
+  document.getElementById('compare-table').innerHTML = rows.map(r =>
+    `<tr>${r.map((c,i)=>`<td${i===0?' style="font-weight:600"':''}>${c}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+window.addEventListener('DOMContentLoaded', runScenarios);
+</script>
+</body>
+</html>

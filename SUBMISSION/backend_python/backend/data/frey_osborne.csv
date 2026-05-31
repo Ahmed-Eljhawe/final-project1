@@ -1,0 +1,54 @@
+rank,probability,soc_code,occupation
+1,0.99,41-9041,Telemarketers
+2,0.99,23-2093,Title Examiners and Abstractors
+3,0.99,51-6051,Sewers Hand
+4,0.99,15-2091,Mathematical Technicians
+5,0.99,13-2053,Insurance Underwriters
+6,0.99,49-9064,Watch Repairers
+7,0.99,43-5011,Cargo and Freight Agents
+8,0.99,13-2082,Tax Preparers
+9,0.99,51-9151,Photographic Process Workers
+10,0.99,43-4141,New Accounts Clerks
+11,0.99,25-4031,Library Technicians
+12,0.99,43-9021,Data Entry Keyers
+13,0.98,51-2093,Timing Device Assemblers
+14,0.98,43-9041,Insurance Claims and Policy Processing Clerks
+15,0.98,43-4011,Brokerage Clerks
+16,0.98,43-4151,Order Clerks
+17,0.98,13-2072,Loan Officers
+18,0.98,13-1032,Insurance Appraisers Auto Damage
+19,0.98,27-2023,Umpires Referees and Other Sports Officials
+20,0.98,43-3071,Tellers
+22,0.97,15-1199,Computer Programmers
+26,0.96,53-3032,Heavy and Tractor-Trailer Truck Drivers
+30,0.96,41-2031,Retail Salespersons
+33,0.95,43-6014,Secretaries and Administrative Assistants
+36,0.94,51-1011,First-Line Supervisors of Production Workers
+41,0.94,35-3023,Combined Food Preparation and Serving Workers
+58,0.91,41-2011,Cashiers
+73,0.85,49-3023,Automotive Service Technicians
+89,0.80,53-3022,Bus Drivers Transit and Intercity
+115,0.73,33-3051,Police and Sheriffs Patrol Officers
+156,0.65,11-9051,Food Service Managers
+220,0.55,15-1141,Database Administrators
+278,0.47,11-3071,Transportation Storage and Distribution Managers
+312,0.42,29-2061,Licensed Practical and Vocational Nurses
+390,0.35,29-2052,Pharmacy Technicians
+421,0.31,21-1093,Social and Human Service Assistants
+465,0.25,13-1023,Purchasing Agents Except Wholesale Retail and Farm Products
+510,0.18,17-2199,Engineers All Other
+544,0.13,15-1132,Software Developers Applications
+585,0.07,11-1021,General and Operations Managers
+612,0.04,29-1141,Registered Nurses
+630,0.025,25-2031,Secondary School Teachers
+648,0.015,19-3031,Clinical Counseling and School Psychologists
+659,0.009,29-1062,Family and General Practitioners
+667,0.0071,29-9091,Athletic Trainers
+672,0.0042,29-1067,Surgeons
+675,0.0035,21-1022,Healthcare Social Workers
+683,0.0028,29-1125,Recreational Therapists
+689,0.0035,11-9111,Medical and Health Services Managers
+695,0.004,29-1021,Dentists
+698,0.004,27-2032,Choreographers
+701,0.003,49-1011,First-Line Supervisors of Mechanics
+702,0.003,29-1066,Psychiatrists

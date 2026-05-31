@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Labor Market Simulation — Validation</title>
+<link rel="stylesheet" href="style.css?v=12"/>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark"></span>AI Labor Market Simulation</div>
+  <div class="crumb"><span class="val">Validation</span><span class="sep">/</span><span id="crumb-state"></span></div>
+  <div class="right"><span class="status">Live · WB API</span></div>
+</div>
+
+<div class="app-layout">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">AI Labor Sim</div>
+    <div class="logo-sub">2026 — 2046</div>
+  </div>
+  <div class="nav-section-label">Sections</div>
+  <a class="nav-link" href="index.html"><span class="nav-icon">01</span>Overview</a>
+  <a class="nav-link" href="sector.html"><span class="nav-icon">02</span>Sector Analysis</a>
+  <a class="nav-link" href="ai_impact.html"><span class="nav-icon">03</span>AI Impact</a>
+  <a class="nav-link" href="macroeconomy.html"><span class="nav-icon">04</span>Macroeconomy</a>
+  <a class="nav-link" href="scenarios.html"><span class="nav-icon">05</span>Scenarios</a>
+  <a class="nav-link active" href="validation.html"><span class="nav-icon">06</span>Validation</a>
+
+  <div class="sidebar-controls">
+    <div class="ctrl-label">Parameters</div>
+    <div class="ctrl-group">
+      <label>Scenario</label>
+      <select id="select-scenario"><option value="moderate" selected>Moderate (5%)</option><option value="slow">Slow (3%)</option><option value="rapid">Rapid (8%)</option></select>
+    </div>
+    <div class="ctrl-group">
+      <label>AI Adoption Speed <span id="val-ai">1.0×</span></label>
+      <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Monte Carlo Runs <span id="val-automation">1000</span></label>
+      <input type="range" id="slider-automation" min="100" max="3000" step="100" value="1000"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Horizon <span id="val-horizon">20 yr</span></label>
+      <input type="range" id="slider-horizon" min="5" max="30" step="5" value="20"/>
+    </div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Validation &amp; Confidence</h1>
+      <p class="page-subtitle">Backtest 2000–2020 · Monte Carlo 95% CI · Sensitivity analysis · Arabic AI advisory report</p>
+    </div>
+    <div class="page-meta">
+      <div class="item"><span class="k">Backtest period</span><span class="v">2000–2020</span></div>
+      <div class="item"><span class="k">Validation source</span><span class="v">WB SL.UEM.TOTL.ZS</span></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Total Jobs</div><div class="kpi-value" id="kpi-jobs">—</div><div class="kpi-sub">Final year</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--danger)"><div class="kpi-label">Unemployment</div><div class="kpi-value" id="kpi-unem">—</div><div class="kpi-sub">% of workforce</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--warm)"><div class="kpi-label">GDP</div><div class="kpi-value" id="kpi-gdp">—</div><div class="kpi-sub">Trillion USD</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-dark)"><div class="kpi-label">AI Adoption</div><div class="kpi-value" id="kpi-ai">—</div><div class="kpi-sub">% economy-wide</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">Validation Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub">2000–2020 backtest</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="run-btn" onclick="runValidation()">▸ Run Validation</button>
+    <button class="run-btn" style="background:var(--warm)" onclick="runMonteCarlo()">▸ Monte Carlo</button>
+    <button class="run-btn" style="background:var(--accent-dark)" onclick="runArabicReport()">▸ Arabic AI Report</button>
+    <span id="status-text" style="font-size:.78rem;color:var(--muted)">Run each analysis independently.</span>
+  </div>
+
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem" id="metric-pills"></div>
+
+  <div class="chart-card" style="margin-bottom:1rem">
+    <div class="chart-title">Sensitivity Analysis (±20% perturbations)</div>
+    <div class="chart-subtitle">Impact on final-year unemployment when key parameters move ±20%</div>
+    <table class="data-table">
+      <thead><tr><th>Parameter</th><th>Base</th><th>Low (-20%)</th><th>High (+20%)</th><th>Impact Low</th><th>Impact High</th></tr></thead>
+      <tbody id="sensitivity-body"><tr><td colspan="6" style="text-align:center;color:var(--muted)">Run validation to populate…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="chart-grid cols-1">
+    <div class="chart-card full-width">
+      <div class="chart-title">Model Validation — Predicted vs Actual Unemployment (2000–2020)</div>
+      <div class="chart-subtitle">World Bank historical data vs model backtest · Figure 1</div>
+      <div class="chart-container tall" id="chart-validation"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cols-1">
+    <div class="chart-card full-width">
+      <div class="chart-title">Monte Carlo Simulation — 95% Confidence Interval</div>
+      <div class="chart-subtitle" id="mc-subtitle">1000 random iterations · shaded band = 2.5th–97.5th percentile · Figure 2</div>
+      <div class="chart-container tall" id="chart-montecarlo"></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:.75rem;flex-wrap:wrap">
+      <div>
+        <div class="chart-title">تقرير المستشار الاقتصادي — Economic Advisory Report</div>
+        <div class="chart-subtitle">6-section advisory report (Arabic) generated from the simulation numbers</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--muted-strong);background:var(--panel-2);padding:.3rem .55rem;border-radius:4px;border:1px solid var(--border)">
+          Engine
+          <select id="engine-select" style="background:#fff;color:var(--ink);border:1px solid var(--border);border-radius:3px;padding:.2rem .4rem;font-size:.72rem;font-family:inherit">
+            <option value="builtin" selected>Built-in (always works)</option>
+            <option value="groq">Groq LLM (free cloud, varies each run)</option>
+            <option value="ollama">Ollama LLM (local install)</option>
+          </select>
+        </label>
+        <select id="model-select" style="display:none;background:#fff;color:var(--ink);border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem;font-size:.72rem;font-family:inherit">
+          <option value="">Default Ollama model</option>
+        </select>
+        <span class="ai-status" id="ai-status">Ready</span>
+      </div>
+    </div>
+    <div class="arabic-report" id="arabic-report">انقر على زر "التقرير العربي" لتوليد تحليل اقتصادي شامل من 6 أقسام باللغة العربية الفصحى.
+
+اختر المُحرّك المناسب:
+• Built-in: يعمل دائماً بدون أي إعدادات خارجية. مثالي للعروض التقديمية.
+• Groq: نموذج لغوي سحابي مجاني (Llama 3.3 70B). ينتج صياغة متنوعة في كل مرة.
+   يتطلب مفتاحاً مجانياً من console.groq.com (متغيّر البيئة GROQ_API_KEY).
+• Ollama: نموذج لغوي محلي. يتطلب تثبيت Ollama على localhost:11434.</div>
+  </div>
+
+  <div class="findings">
+    <div class="findings-head">
+      <h3>Key Findings — Presentation Notes</h3>
+      <span class="source">Source: /api/validate · /api/monte-carlo · /api/sensitivity</span>
+    </div>
+    <ul>
+      <li><strong>Backtest validates the model.</strong> Predicted vs actual 2000–2020 unemployment matches with low MAE.</li>
+      <li><strong>Monte Carlo</strong> reports a 95% confidence band — 1000 runs with randomized parameters.</li>
+      <li><strong>Sensitivity</strong> identifies which inputs matter most (automation rate vs adoption speed).</li>
+      <li><strong>Reproducible.</strong> Monte Carlo seeded with RNG 42; identical runs reproduce same numbers.</li>
+      <li><strong>Arabic AI report</strong> uses /api/analyze to generate a 6-section advisory report.</li>
+      <li><strong>Cross-checked with RandomForest</strong> ML forecast trained on World Bank 2000–2024 data.</li>
+    </ul>
+  </div>
+</main>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Running validation…</div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=12"></script>
+<script>
+let cVal, cMC;
+
+async function runValidation() {
+  showLoading('Running backtest 2000–2020…');
+  try {
+    const [valData, simData] = await Promise.all([
+      apiFetch('/api/validate'),
+      apiFetch(window.simURL(window.SIM.scenario)),
+    ]);
+    window.SIM.data = simData;
+    updateKPIs(simData);
+    const kpiAcc = document.getElementById('kpi-accuracy');
+    if (kpiAcc) kpiAcc.textContent = valData.accuracy + '%';
+    renderValidationChart(valData);
+    renderMetricPills(valData);
+    loadSensitivity();
+    updateCrumb();
+    toast(`Validation complete — MAE ${valData.mae} | Accuracy ${valData.accuracy}%`, 'success');
+    document.getElementById('status-text').textContent = `MAE ${valData.mae} | Accuracy ${valData.accuracy}%`;
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function loadSensitivity() {
+  try {
+    const s = await apiFetch(`/api/sensitivity?scenario=${window.SIM.scenario}&country=${window.SIM.country}`);
+    const sign = (n) => (n >= 0 ? '+' : '') + n;
+    document.getElementById('sensitivity-body').innerHTML = Object.entries(s).map(([param, v]) => `
+      <tr>
+        <td><strong>${param.replace('_', ' ')}</strong></td>
+        <td>${v.base}%</td>
+        <td>${v.low}%</td>
+        <td>${v.high}%</td>
+        <td style="color:${v.impact_low<0?'var(--accent)':'var(--danger)'}">${sign(v.impact_low)}</td>
+        <td style="color:${v.impact_high>0?'var(--danger)':'var(--accent)'}">${sign(v.impact_high)}</td>
+      </tr>`).join('');
+  } catch(e) { console.warn('Sensitivity load failed:', e); }
+}
+
+async function loadModels() {
+  try {
+    const r = await apiFetch('/api/models');
+    if (!r.available) return;
+    const sel = document.getElementById('model-select');
+    r.models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      opt.textContent = m.is_cloud ? `${m.name} (cloud)` : `${m.name} (${m.size_mb} MB)`;
+      sel.appendChild(opt);
+    });
+  } catch(e) { console.warn('Models load failed:', e); }
+}
+
+function renderValidationChart(data) {
+  if (cVal) cVal.destroy();
+  cVal = lineChart('chart-validation', [
+    { name: 'Predicted', data: data.predicted },
+    { name: 'Actual',    data: data.actual },
+  ], data.years, '', v => v + '%',
+    { height: 320, colors: ['#2d5a3d','#c4985a'] });
+}
+
+function renderMetricPills(data) {
+  document.getElementById('metric-pills').innerHTML = `
+    <div class="metric-pill">MAE <span>${data.mae}</span></div>
+    <div class="metric-pill">Accuracy <span>${data.accuracy}%</span></div>
+    <div class="metric-pill">Period <span>2000–2020</span></div>
+    <div class="metric-pill">Source <span>World Bank</span></div>
+  `;
+}
+
+async function runMonteCarlo() {
+  const nSims = parseInt(document.getElementById('slider-automation').value) || 1000;
+  showLoading(`Running ${nSims} Monte Carlo iterations…`);
+  document.getElementById('mc-subtitle').textContent =
+    `${nSims} random iterations · shaded band = 2.5th–97.5th percentile · Figure 2`;
+  try {
+    const mc = await apiFetch(`/api/monte-carlo?n_simulations=${nSims}&horizon=${window.SIM.horizon}`);
+    if (cMC) cMC.destroy();
+    cMC = rangeAreaChart('chart-montecarlo', mc.years,
+      mc.unemployment.lower, mc.unemployment.mean, mc.unemployment.upper,
+      'Unemployment Rate — Monte Carlo 95% CI');
+    toast(`Monte Carlo complete — ${nSims} simulations`, 'success');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+async function runArabicReport() {
+  const statusEl = document.getElementById('ai-status');
+  const reportEl = document.getElementById('arabic-report');
+  const engine   = (document.getElementById('engine-select') || {}).value || 'builtin';
+  statusEl.className = 'ai-status loading';
+  statusEl.textContent = 'Generating…';
+  reportEl.textContent = engine === 'ollama'
+    ? 'جارٍ توليد التقرير بواسطة نموذج Ollama المحلي…'
+    : 'جارٍ توليد التقرير الاستشاري الاقتصادي…';
+  showLoading(engine === 'ollama' ? 'Generating via Ollama…' : 'Generating built-in report…');
+  try {
+    const resp = await fetch(`${API_BASE}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenario: window.SIM.scenario,
+        horizon: window.SIM.horizon,
+        adoption_speed: window.SIM.adoptionSpeed,
+        country: window.SIM.country,
+        engine: engine,
+        model: document.getElementById('model-select').value || null,
+      }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      reportEl.textContent = data.report;
+      statusEl.className = 'ai-status';
+      const meta = data.output_tokens
+        ? `✓ ${data.model} | ${data.output_tokens}t | ${data.duration_sec}s`
+        : `✓ ${data.model}`;
+      statusEl.textContent = meta;
+      toast('Advisory report generated', 'success');
+    } else {
+      reportEl.textContent = data.report || data.error || 'Error generating report.';
+      statusEl.className = 'ai-status error';
+      statusEl.textContent = '✕ Error';
+      toast('Report error', 'error');
+    }
+  } catch(e) {
+    reportEl.textContent = 'خطأ في الاتصال بالخادم: ' + e.message;
+    statusEl.className = 'ai-status error';
+    statusEl.textContent = '✕ Error';
+    toast('Error: ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// Toggle the Ollama model dropdown based on engine choice
+document.addEventListener('DOMContentLoaded', () => {
+  const eng = document.getElementById('engine-select');
+  const mdl = document.getElementById('model-select');
+  if (eng && mdl) {
+    const sync = () => { mdl.style.display = eng.value === 'ollama' ? '' : 'none'; };
+    eng.addEventListener('change', sync);
+    sync();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sl = document.getElementById('slider-automation');
+  const vl = document.getElementById('val-automation');
+  if (sl && vl) {
+    sl.addEventListener('input', () => { vl.textContent = sl.value; });
+    vl.textContent = sl.value;
+  }
+  loadModels();
+  runValidation();
+});
+</script>
+</body>
+</html>

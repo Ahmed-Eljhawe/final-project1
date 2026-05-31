@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Labor Market Simulation — Overview</title>
+<link rel="stylesheet" href="style.css?v=12"/>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand"><span class="mark"></span>AI Labor Market Simulation</div>
+  <div class="crumb"><span class="val">Overview</span><span class="sep">/</span><span id="crumb-state"></span></div>
+  <div class="right"><span class="status">Live · WB API</span></div>
+</div>
+
+<div class="app-layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">AI Labor Sim</div>
+    <div class="logo-sub">2026 — 2046</div>
+  </div>
+  <div class="nav-section-label">Sections</div>
+  <a class="nav-link active" href="index.html"><span class="nav-icon">01</span>Overview</a>
+  <a class="nav-link" href="sector.html"><span class="nav-icon">02</span>Sector Analysis</a>
+  <a class="nav-link" href="ai_impact.html"><span class="nav-icon">03</span>AI Impact</a>
+  <a class="nav-link" href="macroeconomy.html"><span class="nav-icon">04</span>Macroeconomy</a>
+  <a class="nav-link" href="scenarios.html"><span class="nav-icon">05</span>Scenarios</a>
+  <a class="nav-link" href="validation.html"><span class="nav-icon">06</span>Validation</a>
+
+  <div class="sidebar-controls">
+    <div class="ctrl-label">Parameters</div>
+    <div class="ctrl-group">
+      <label>Scenario</label>
+      <select id="select-scenario">
+        <option value="moderate" selected>Moderate (5%)</option>
+        <option value="slow">Slow (3%)</option>
+        <option value="rapid">Rapid (8%)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>AI Adoption Speed <span id="val-ai">1.0×</span></label>
+      <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Automation Rate <span id="val-automation">5%</span></label>
+      <input type="range" id="slider-automation" min="1" max="12" step="1" value="5"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Horizon <span id="val-horizon">20 yr</span></label>
+      <input type="range" id="slider-horizon" min="5" max="30" step="5" value="20"/>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main-content">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Overview — 20-Year Labor Market Projection</h1>
+      <p class="page-subtitle">Year-by-year projection of unemployment, GDP, sectors, and skill-tier composition.</p>
+    </div>
+    <div class="page-meta">
+      <div class="item"><span class="k">Model</span><span class="v">v2.0</span></div>
+      <div class="item"><span class="k">Base year</span><span class="v">2024</span></div>
+      <div class="item"><span class="k">Backtest</span><span class="v" id="meta-acc">—</span></div>
+    </div>
+  </div>
+
+  <!-- PLAYER -->
+  <div class="player" id="player">
+    <button class="btn" id="btn-play" title="Play / Pause (Space)">
+      <svg id="icon-play"  viewBox="0 0 24 24" style="display:block"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+    </button>
+    <button class="btn secondary" id="btn-reset" title="Reset (R)">
+      <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg>
+    </button>
+    <div class="year-display">
+      <span class="year" id="year-display">2026</span>
+      <span class="step" id="step-display">YEAR 1 / 21</span>
+    </div>
+    <div class="scrubber" id="scrubber">
+      <div class="scrubber-track"><div class="scrubber-fill" id="scrubber-fill"></div></div>
+      <div class="scrubber-ticks" id="scrubber-ticks"></div>
+      <div class="scrubber-handle" id="scrubber-handle"></div>
+      <div class="scrubber-labels"><span>2026</span><span>2031</span><span>2036</span><span>2041</span><span>2046</span></div>
+    </div>
+    <div class="speed">Speed
+      <select id="speed-select">
+        <option value="800">0.5×</option>
+        <option value="400" selected>1×</option>
+        <option value="200">2×</option>
+        <option value="100">4×</option>
+      </select>
+    </div>
+    <span class="state-pill idle" id="state-pill">Idle</span>
+  </div>
+
+  <!-- RUN BUTTON -->
+  <div class="btn-row">
+    <button class="run-btn" onclick="runSimulation()">▸ Run Simulation</button>
+    <span id="status-text" style="font-size:.78rem;color:var(--muted)">Click Run, then press Play to animate year-by-year.</span>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:var(--accent)">
+      <div class="kpi-label">Total Jobs · <span class="kpi-year">2046</span></div>
+      <div class="kpi-value" id="kpi-jobs">—</div>
+      <div class="kpi-sub" id="delta-jobs">Final year</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--danger)">
+      <div class="kpi-label">Unemployment · <span class="kpi-year">2046</span></div>
+      <div class="kpi-value" id="kpi-unem">—</div>
+      <div class="kpi-sub" id="delta-unem">% of workforce</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--warm)">
+      <div class="kpi-label">GDP · <span class="kpi-year">2046</span></div>
+      <div class="kpi-value" id="kpi-gdp">—</div>
+      <div class="kpi-sub" id="delta-gdp">Trillion USD</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-dark)">
+      <div class="kpi-label">AI Adoption · <span class="kpi-year">2046</span></div>
+      <div class="kpi-value" id="kpi-ai">—</div>
+      <div class="kpi-sub" id="delta-ai">% economy-wide</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)">
+      <div class="kpi-label">ML Accuracy</div>
+      <div class="kpi-value" id="kpi-accuracy">—</div>
+      <div class="kpi-sub">RandomForest backtest</div>
+    </div>
+  </div>
+
+  <!-- CHART GRID 2x2 -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Unemployment Rate <span style="float:right;font-family:'Inter Tight';color:var(--accent);font-size:.85rem" id="live-unem">—</span></div>
+      <div class="chart-subtitle">Annual % of total workforce · Figure 1</div>
+      <div class="chart-container" id="chart-unemployment"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">GDP Trajectory <span style="float:right;font-family:'Inter Tight';color:var(--accent);font-size:.85rem" id="live-gdp">—</span></div>
+      <div class="chart-subtitle">Trillion USD · Figure 2</div>
+      <div class="chart-container" id="chart-gdp"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Workforce by Skill Tier</div>
+      <div class="chart-subtitle">5 tiers · current-year share · Figure 3</div>
+      <div class="chart-container donut" id="chart-skills-donut"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Jobs by Economic Sector</div>
+      <div class="chart-subtitle">Tech · Manufacturing · Healthcare · Services · Figure 4</div>
+      <div class="chart-container donut" id="chart-sector-donut"></div>
+    </div>
+  </div>
+
+  <!-- FINDINGS -->
+  <div class="findings">
+    <div class="findings-head">
+      <h3>Key Findings — Presentation Notes</h3>
+      <span class="source">Source: AI Labor Sim v2.0 · World Bank baseline · 2024 OEWS wages</span>
+    </div>
+    <ul>
+      <li><strong>Output grows, employment falls.</strong> GDP rises while jobs decrease — productivity captures the gains.</li>
+      <li><strong>Inequality widens.</strong> Gini index rises; L5/L1 wage ratio expands.</li>
+      <li><strong>Adoption follows an S-curve.</strong> Logistic midpoint at year 10; saturation near year 20.</li>
+      <li><strong>Job creation only partially offsets loss.</strong> 0.6 new jobs per 1 displaced — net negative.</li>
+      <li><strong>Sectoral asymmetry.</strong> Tech grows; Manufacturing shrinks under automation exposure.</li>
+      <li><strong>Validated against 2000–2020</strong> World Bank unemployment data via the RandomForest backtest.</li>
+    </ul>
+  </div>
+
+</main>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Running simulation…</div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=12"></script>
+<script>
+let chartUnem, chartGDP, chartSkills, chartSector;
+let player = null;
+let currentData = null;
+
+async function runSimulation() {
+  showLoading('Running simulation…');
+  document.getElementById('status-text').textContent = 'Fetching data…';
+  try {
+    const data = await apiFetch(window.simURL(window.SIM.scenario));
+    currentData = data;
+    window.SIM.data = data;
+    updateKPIs(data);
+
+    // ML accuracy KPI
+    if (data.ml_forecast) {
+      document.getElementById('meta-acc').textContent = data.ml_forecast.model_accuracy + '%';
+    }
+
+    initCharts(data);
+    initPlayer(data);
+    updateCrumb();
+
+    toast(`Simulation complete — ${window.SIM.scenario.toUpperCase()} scenario`, 'success');
+    document.getElementById('status-text').textContent =
+      `Loaded · ${window.SIM.scenario} · ${window.SIM.country} · Press ▶ Play`;
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    document.getElementById('status-text').textContent = 'Error — is the backend running?';
+    console.error(e);
+  } finally { hideLoading(); }
+}
+
+function initCharts(data) {
+  const years = data.years;
+  const finalIdx = years.length - 1;
+
+  // Destroy any previous charts before re-rendering
+  if (chartUnem)   { chartUnem.destroy();   chartUnem = null; }
+  if (chartGDP)    { chartGDP.destroy();    chartGDP = null; }
+  if (chartSkills) { chartSkills.destroy(); chartSkills = null; }
+  if (chartSector) { chartSector.destroy(); chartSector = null; }
+
+  // Initialize line charts with ALL years populated (the "final" view).
+  // When Play is pressed, the player will reset them to year 0 and animate forward.
+  chartUnem = new ApexCharts(document.querySelector('#chart-unemployment'), {
+    chart: { type: 'area', height: 220, toolbar: { show: false }, fontFamily: 'Inter', animations: { enabled: false } },
+    series: [{ name: 'Unemployment %', data: data.unemployment }],
+    xaxis: { categories: years, labels: { style: { colors: '#7a7565', fontSize: '10px' }, hideOverlappingLabels: true }, tickAmount: 5,
+             axisBorder: { color: 'rgba(31,58,38,0.12)' }, axisTicks: { color: 'rgba(31,58,38,0.12)' } },
+    yaxis: { labels: { formatter: v => v.toFixed(1) + '%', style: { colors: '#7a7565', fontSize: '10px' } } },
+    stroke: { curve: 'smooth', width: 2.5, colors: ['#2d5a3d'] },
+    fill: { type: 'gradient', gradient: { shade: 'light', opacityFrom: .3, opacityTo: .04 } },
+    colors: ['#2d5a3d'], grid: { borderColor: 'rgba(31,58,38,0.07)' },
+    markers: { size: 0 }, tooltip: { theme: 'light' }, legend: { show: false },
+    dataLabels: { enabled: false },
+  });
+  chartUnem.render();
+
+  chartGDP = new ApexCharts(document.querySelector('#chart-gdp'), {
+    chart: { type: 'line', height: 220, toolbar: { show: false }, fontFamily: 'Inter', animations: { enabled: false } },
+    series: [{ name: 'GDP', data: data.gdp }],
+    xaxis: { categories: years, labels: { style: { colors: '#7a7565', fontSize: '10px' }, hideOverlappingLabels: true }, tickAmount: 5,
+             axisBorder: { color: 'rgba(31,58,38,0.12)' }, axisTicks: { color: 'rgba(31,58,38,0.12)' } },
+    yaxis: { labels: { formatter: v => '$' + v.toFixed(0) + 'T', style: { colors: '#7a7565', fontSize: '10px' } } },
+    stroke: { curve: 'smooth', width: 2.5, colors: ['#1f3a26'] },
+    colors: ['#1f3a26'], grid: { borderColor: 'rgba(31,58,38,0.07)' },
+    markers: { size: 0 }, tooltip: { theme: 'light' }, legend: { show: false },
+    dataLabels: { enabled: false },
+  });
+  chartGDP.render();
+
+  // Donuts initialize with FINAL-year values
+  const skillNames = Object.keys(data.skills);
+  chartSkills = donutChart('chart-skills-donut',
+    skillNames.map(k => data.skills[k][finalIdx]), skillNames, '',
+    ['#2d5a3d','#c4985a','#5e8d73','#a8c0ad','#a8553a']);
+
+  const secNames = Object.keys(data.sectors);
+  chartSector = donutChart('chart-sector-donut',
+    secNames.map(k => data.sectors[k][finalIdx]), secNames, '',
+    ['#2d5a3d','#a8553a','#5e8d73','#c4985a']);
+}
+
+function initPlayer(data) {
+  // Only build the player ONCE — re-running Run shouldn't add duplicate event listeners.
+  // Subsequent runs just update currentData (the player reads it via closure).
+  if (player) {
+    // Reset player UI to the end so the new data's final state shows.
+    player.seekTo(data.years.length - 1);
+    return;
+  }
+  player = createPlayer({
+    getData: () => currentData,
+    total: data.years.length,
+    onTick: ({ progress, lo, hi, t, data }) => {
+      // Smooth KPI interpolation between consecutive years
+      const jobsV = valueAt(data.total_jobs,  progress);
+      const unemV = valueAt(data.unemployment, progress);
+      const gdpV  = valueAt(data.gdp,          progress);
+      const aiV   = valueAt(data.ai_adoption,  progress);
+
+      document.getElementById('kpi-jobs').innerHTML = fmt.jobs(jobsV);
+      document.getElementById('kpi-unem').innerHTML = unemV.toFixed(2) + '<span class="unit">%</span>';
+      document.getElementById('kpi-gdp').innerHTML  = '$' + gdpV.toFixed(1) + '<span class="unit">T</span>';
+      document.getElementById('kpi-ai').innerHTML   = aiV.toFixed(1) + '<span class="unit">%</span>';
+
+      const yearLabel = data.years[Math.round(progress)];
+      document.querySelectorAll('.kpi-year').forEach(e => e.textContent = yearLabel);
+      document.getElementById('live-unem').textContent = unemV.toFixed(2) + '%';
+      document.getElementById('live-gdp').textContent  = '$' + gdpV.toFixed(1) + 'T';
+
+      // Line charts: grow the tip year-by-year with smooth interpolation
+      const unemData = data.unemployment.slice(0, lo + 1);
+      const gdpData  = data.gdp.slice(0, lo + 1);
+      if (t > 0 && lo < data.years.length - 1) {
+        unemData.push(unemV);
+        gdpData.push(gdpV);
+      }
+      if (chartUnem) chartUnem.updateSeries([{ name: 'Unemployment %', data: unemData }], false);
+      if (chartGDP)  chartGDP.updateSeries([{ name: 'GDP', data: gdpData }], false);
+
+      // Donuts: snap to year boundary value
+      const i = Math.min(lo, data.years.length - 1);
+      if (chartSkills) {
+        const skillNames = Object.keys(data.skills);
+        chartSkills.updateSeries(skillNames.map(k => data.skills[k][i]));
+      }
+      if (chartSector) {
+        const secNames = Object.keys(data.sectors);
+        chartSector.updateSeries(secNames.map(k => data.sectors[k][i]));
+      }
+    },
+  });
+  // Render at the END so user immediately sees the full result.
+  // Defer to next frame so all 4 ApexCharts finish their async render
+  // before the player calls updateSeries on them (avoids race condition).
+  requestAnimationFrame(() => player.seekTo(data.years.length - 1));
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  // Auto-run on load
+  runSimulation();
+});
+</script>
+</body>
+</html>

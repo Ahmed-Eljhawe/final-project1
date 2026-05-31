@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Labor Market Simulation — AI Impact</title>
+<link rel="stylesheet" href="style.css?v=12"/>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark"></span>AI Labor Market Simulation</div>
+  <div class="crumb"><span class="val">AI Impact</span><span class="sep">/</span><span id="crumb-state"></span></div>
+  <div class="right"><span class="status">Live · WB API</span></div>
+</div>
+
+<div class="app-layout">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">AI Labor Sim</div>
+    <div class="logo-sub">2026 — 2046</div>
+  </div>
+  <div class="nav-section-label">Sections</div>
+  <a class="nav-link" href="index.html"><span class="nav-icon">01</span>Overview</a>
+  <a class="nav-link" href="sector.html"><span class="nav-icon">02</span>Sector Analysis</a>
+  <a class="nav-link active" href="ai_impact.html"><span class="nav-icon">03</span>AI Impact</a>
+  <a class="nav-link" href="macroeconomy.html"><span class="nav-icon">04</span>Macroeconomy</a>
+  <a class="nav-link" href="scenarios.html"><span class="nav-icon">05</span>Scenarios</a>
+  <a class="nav-link" href="validation.html"><span class="nav-icon">06</span>Validation</a>
+
+  <div class="sidebar-controls">
+    <div class="ctrl-label">Parameters</div>
+    <div class="ctrl-group">
+      <label>Scenario</label>
+      <select id="select-scenario"><option value="moderate" selected>Moderate (5%)</option><option value="slow">Slow (3%)</option><option value="rapid">Rapid (8%)</option></select>
+    </div>
+    <div class="ctrl-group">
+      <label>AI Adoption Speed <span id="val-ai">1.0×</span></label>
+      <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Horizon <span id="val-horizon">20 yr</span></label>
+      <input type="range" id="slider-horizon" min="5" max="30" step="5" value="20"/>
+    </div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">AI Impact Analysis</h1>
+      <p class="page-subtitle">S-curve adoption · Productivity multiplier · Frey &amp; Osborne automation risk</p>
+    </div>
+    <div class="page-meta">
+      <div class="item"><span class="k">S-curve midpoint</span><span class="v">Year 10</span></div>
+      <div class="item"><span class="k">Risk source</span><span class="v">Frey &amp; Osborne 2013</span></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Total Jobs</div><div class="kpi-value" id="kpi-jobs">—</div><div class="kpi-sub">Final year</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--danger)"><div class="kpi-label">Unemployment</div><div class="kpi-value" id="kpi-unem">—</div><div class="kpi-sub">% of workforce</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--warm)"><div class="kpi-label">GDP</div><div class="kpi-value" id="kpi-gdp">—</div><div class="kpi-sub">Trillion USD</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-dark)"><div class="kpi-label">AI Adoption</div><div class="kpi-value" id="kpi-ai">—</div><div class="kpi-sub">% economy-wide</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">ML Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub">Backtest</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="run-btn" onclick="runAIPage()">▸ Analyze AI Impact</button>
+    <span id="status-text" style="font-size:.78rem;color:var(--muted)">Click to load AI dynamics.</span>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">AI Adoption S-Curve</div>
+      <div class="chart-subtitle">Logistic growth · slow start → acceleration → saturation · Figure 1</div>
+      <div class="chart-container" id="chart-scurve"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Productivity Multiplier</div>
+      <div class="chart-subtitle">AI-driven worker productivity boost · Figure 2</div>
+      <div class="chart-container" id="chart-productivity"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cols-1">
+    <div class="chart-card full-width">
+      <div class="chart-title">Automation Risk by Job Type</div>
+      <div class="chart-subtitle">10 categories inspired by Frey &amp; Osborne 2013 · Figure 3</div>
+      <div class="chart-container tall" id="chart-oxford-risk"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Jobs Lost vs Created</div>
+      <div class="chart-subtitle">Annual AI displacement vs creation (millions) · Figure 4</div>
+      <div class="chart-container" id="chart-jobs-delta"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Adoption Speed Comparison</div>
+      <div class="chart-subtitle">Slow (0.6×) · Baseline (1×) · Fast (1.5×) · Figure 5</div>
+      <div class="chart-container" id="chart-speed-compare"></div>
+    </div>
+  </div>
+
+  <div class="findings">
+    <div class="findings-head">
+      <h3>Key Findings — Presentation Notes</h3>
+      <span class="source">Source: ai_adoption() S-curve · Frey &amp; Osborne 2013</span>
+    </div>
+    <ul>
+      <li><strong>Logistic S-curve.</strong> 1 / (1 + e^(-k × (year − 10))) with k = 0.35 × speed.</li>
+      <li><strong>Midpoint at year 10.</strong> 50% adoption by 2036; ~97% by 2046.</li>
+      <li><strong>Productivity gains compound.</strong> +85% at full adoption (adoption^0.7 × 0.85).</li>
+      <li><strong>Clerical, transport, retail</strong> have the highest automation risk (90%+).</li>
+      <li><strong>Creative + management</strong> are most resilient (under 20%).</li>
+      <li><strong>Job creation ratio = 0.6.</strong> Per 100 jobs lost, only 60 new ones created.</li>
+    </ul>
+  </div>
+</main>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Computing AI dynamics…</div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=12"></script>
+<script>
+let cSCurve, cProd, cOxford, cDelta, cSpeed;
+let player = null;
+let currentData = null;
+let OXFORD_JOBS = [], OXFORD_RISK = [];
+
+async function runAIPage() {
+  showLoading('Computing AI dynamics…');
+  try {
+    const [data, oxford] = await Promise.all([
+      apiFetch(window.simURL(window.SIM.scenario)),
+      apiFetch('/api/oxford-risk'),
+    ]);
+    OXFORD_JOBS = oxford.jobs;
+    OXFORD_RISK = oxford.risk;
+    currentData = data;
+    window.SIM.data = data;
+    updateKPIs(data);
+    renderCharts(data);
+    injectPlayerMarkup(document.querySelector('.page-header'));
+    updateScrubberLabels(data.years);
+    initPlayer(data);
+    updateCrumb();
+    toast('AI impact analysis complete', 'success');
+    document.getElementById('status-text').textContent = `Scenario: ${window.SIM.scenario} · Press ▶ Play to animate`;
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+function initPlayer(data) {
+  if (player) { player.seekTo(data.years.length - 1); return; }
+  const prod = productivityFromAdoption(data.ai_adoption);
+  const jobsLost = data.ai_adoption.map((a, i) =>
+    +((data.total_jobs[i] || 150e6) * 0.05 * (a/100) / 1e6).toFixed(2));
+  const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
+
+  player = createPlayer({
+    getData: () => currentData,
+    total: data.years.length,
+    onTick: ({ progress, data }) => {
+      const jobsV = valueAt(data.total_jobs,  progress);
+      const unemV = valueAt(data.unemployment, progress);
+      const gdpV  = valueAt(data.gdp,          progress);
+      const aiV   = valueAt(data.ai_adoption,  progress);
+      document.getElementById('kpi-jobs').innerHTML = fmt.jobs(jobsV);
+      document.getElementById('kpi-unem').innerHTML = unemV.toFixed(2) + '<span class="unit">%</span>';
+      document.getElementById('kpi-gdp').innerHTML  = '$' + gdpV.toFixed(1) + '<span class="unit">T</span>';
+      document.getElementById('kpi-ai').innerHTML   = aiV.toFixed(1) + '<span class="unit">%</span>';
+
+      if (cSCurve) cSCurve.updateSeries([{ name:'AI Adoption %', data: growSeries(data.ai_adoption, progress) }], false);
+      if (cProd)   cProd.updateSeries(  [{ name:'Productivity',  data: growSeries(prod, progress) }], false);
+      if (cDelta)  cDelta.updateSeries([
+        { name:'Jobs Lost',    data: growSeries(jobsLost,    progress) },
+        { name:'Jobs Created', data: growSeries(jobsCreated, progress) },
+      ], false);
+      // Oxford risk and Speed compare are reference views — they stay static.
+    },
+  });
+  requestAnimationFrame(() => player.seekTo(data.years.length - 1));
+}
+
+function sCurve(n, speed) {
+  return Array.from({length:n}, (_, i) => {
+    const k = 0.35 * speed, x0 = 10;
+    return +(100 / (1 + Math.exp(-k * (i - x0)))).toFixed(2);
+  });
+}
+function productivityFromAdoption(adoption) {
+  return adoption.map(a => +(1 + Math.pow(a/100, 0.7) * 0.85).toFixed(4));
+}
+
+function renderCharts(data) {
+  const years = data.years;
+  const n = years.length;
+
+  if (cSCurve) cSCurve.destroy();
+  cSCurve = areaChart('chart-scurve', [{ name:'AI Adoption %', data:data.ai_adoption }], years, '');
+
+  const prod = productivityFromAdoption(data.ai_adoption);
+  if (cProd) cProd.destroy();
+  cProd = lineChart('chart-productivity', [{ name:'Productivity', data: prod }], years, '', v => v + '×');
+
+  if (cOxford) cOxford.destroy();
+  cOxford = barChart('chart-oxford-risk',
+    [{ name:'Risk %', data: OXFORD_RISK.map(v => +(v*100).toFixed(0)) }],
+    OXFORD_JOBS, '',
+    { height: 320, colors: ['#2d5a3d'], showLegend: false });
+
+  const jobsLost = data.ai_adoption.map((a, i) =>
+    +((data.total_jobs[i] || 150e6) * 0.05 * (a/100) / 1e6).toFixed(2));
+  const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
+  if (cDelta) cDelta.destroy();
+  cDelta = barChart('chart-jobs-delta', [
+    { name:'Jobs Lost', data: jobsLost },
+    { name:'Jobs Created', data: jobsCreated },
+  ], years, '',
+    { colors: ['#a8553a','#2d5a3d'] });
+
+  if (cSpeed) cSpeed.destroy();
+  cSpeed = lineChart('chart-speed-compare', [
+    { name:'Slow (0.6×)',   data: sCurve(n, 0.6) },
+    { name:'Baseline (1×)', data: sCurve(n, 1.0) },
+    { name:'Fast (1.5×)',   data: sCurve(n, 1.5) },
+  ], years, '', v => v + '%');
+}
+
+window.addEventListener('DOMContentLoaded', runAIPage);
+</script>
+</body>
+</html>

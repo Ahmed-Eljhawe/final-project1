@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Labor Market Simulation — Macroeconomy</title>
+<link rel="stylesheet" href="style.css?v=12"/>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="mark"></span>AI Labor Market Simulation</div>
+  <div class="crumb"><span class="val">Macroeconomy</span><span class="sep">/</span><span id="crumb-state"></span></div>
+  <div class="right"><span class="status">Live · WB API</span></div>
+</div>
+
+<div class="app-layout">
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">AI Labor Sim</div>
+    <div class="logo-sub">2026 — 2046</div>
+  </div>
+  <div class="nav-section-label">Sections</div>
+  <a class="nav-link" href="index.html"><span class="nav-icon">01</span>Overview</a>
+  <a class="nav-link" href="sector.html"><span class="nav-icon">02</span>Sector Analysis</a>
+  <a class="nav-link" href="ai_impact.html"><span class="nav-icon">03</span>AI Impact</a>
+  <a class="nav-link active" href="macroeconomy.html"><span class="nav-icon">04</span>Macroeconomy</a>
+  <a class="nav-link" href="scenarios.html"><span class="nav-icon">05</span>Scenarios</a>
+  <a class="nav-link" href="validation.html"><span class="nav-icon">06</span>Validation</a>
+
+  <div class="sidebar-controls">
+    <div class="ctrl-label">Parameters</div>
+    <div class="ctrl-group">
+      <label>Scenario</label>
+      <select id="select-scenario"><option value="moderate" selected>Moderate (5%)</option><option value="slow">Slow (3%)</option><option value="rapid">Rapid (8%)</option></select>
+    </div>
+    <div class="ctrl-group">
+      <label>AI Adoption Speed <span id="val-ai">1.0×</span></label>
+      <input type="range" id="slider-ai" min="0.5" max="2.0" step="0.1" value="1.0"/>
+    </div>
+    <div class="ctrl-group">
+      <label>Horizon <span id="val-horizon">20 yr</span></label>
+      <input type="range" id="slider-horizon" min="5" max="30" step="5" value="20"/>
+    </div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Macroeconomic Analysis</h1>
+      <p class="page-subtitle">GDP · Wages by skill tier · Gini inequality · Consumer spending</p>
+    </div>
+    <div class="page-meta">
+      <div class="item"><span class="k">Wage source</span><span class="v">BLS OEWS 2024</span></div>
+      <div class="item"><span class="k">Scenario</span><span class="v" id="meta-scenario">moderate</span></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">Total Jobs</div><div class="kpi-value" id="kpi-jobs">—</div><div class="kpi-sub">Final year</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--danger)"><div class="kpi-label">Unemployment</div><div class="kpi-value" id="kpi-unem">—</div><div class="kpi-sub">% of workforce</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--warm)"><div class="kpi-label">GDP</div><div class="kpi-value" id="kpi-gdp">—</div><div class="kpi-sub">Trillion USD</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-dark)"><div class="kpi-label">AI Adoption</div><div class="kpi-value" id="kpi-ai">—</div><div class="kpi-sub">% economy-wide</div></div>
+    <div class="kpi-card" style="--kpi-color:var(--accent-bright)"><div class="kpi-label">ML Accuracy</div><div class="kpi-value" id="kpi-accuracy">—</div><div class="kpi-sub">Backtest</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="run-btn" onclick="runMacro()">▸ Run Macro Analysis</button>
+    <span id="status-text" style="font-size:.78rem;color:var(--muted)">Click to load macro data.</span>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">GDP Over Time</div>
+      <div class="chart-subtitle">Productivity-adjusted gross domestic product (Trillion USD) · Figure 1</div>
+      <div class="chart-container" id="chart-gdp"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Income Inequality — Gini</div>
+      <div class="chart-subtitle">0 = perfect equality · 1 = max inequality · Figure 2</div>
+      <div class="chart-container" id="chart-gini"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Wage Trends by Skill Tier</div>
+      <div class="chart-subtitle">Annual wage evolution across 5 tiers (USD) · Figure 3</div>
+      <div class="chart-container" id="chart-wages"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Consumer Spending</div>
+      <div class="chart-subtitle">Effect of unemployment on aggregate demand (Trillion USD) · Figure 4</div>
+      <div class="chart-container" id="chart-spending"></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:1rem">
+    <div class="chart-title">Final-Year Wage Summary</div>
+    <div class="chart-subtitle">Average annual wage by skill tier and change vs. baseline</div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Skill Tier</th><th>Final Wage</th><th>Baseline</th><th>Change</th><th>% Change</th></tr>
+      </thead>
+      <tbody id="wage-table-body"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Run to populate…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="findings">
+    <div class="findings-head">
+      <h3>Key Findings — Presentation Notes</h3>
+      <span class="source">Source: simulation engine · BLS-calibrated wages</span>
+    </div>
+    <ul>
+      <li><strong>GDP grows ~75%</strong> over 20 years driven by AI productivity, despite higher unemployment.</li>
+      <li><strong>Wage bifurcation.</strong> L1 (basic) loses ~15%; L5 (expert) gains ~22%.</li>
+      <li><strong>Gini index rises</strong> from 0.41 → 0.43 in the moderate scenario.</li>
+      <li><strong>Consumer spending dampens.</strong> Higher unemployment shrinks the spending ratio of GDP.</li>
+      <li><strong>Productivity is the engine.</strong> 85% productivity boost at full adoption (adoption^0.7 × 0.85).</li>
+      <li><strong>Output-employment decoupling</strong> is the central macroeconomic story.</li>
+    </ul>
+  </div>
+</main>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading macro data…</div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js?v=12"></script>
+<script>
+let cGDP, cGini, cWages, cSpend;
+let player = null;
+let currentData = null;
+const BASE_WAGES = { L1_basic:33000, L2_semi:49000, L3_intermediate:73000, L4_advanced:115000, L5_expert:200000 };
+const SKILL_LABELS = { L1_basic:'Basic (L1)', L2_semi:'Semi-skilled (L2)', L3_intermediate:'Intermediate (L3)', L4_advanced:'Advanced (L4)', L5_expert:'Expert (L5)' };
+
+async function runMacro() {
+  showLoading('Loading macro data…');
+  try {
+    const data = await apiFetch(window.simURL(window.SIM.scenario));
+    currentData = data;
+    window.SIM.data = data;
+    updateKPIs(data);
+    document.getElementById('meta-scenario').textContent = window.SIM.scenario;
+    renderCharts(data);
+    populateWageTable(data);
+    injectPlayerMarkup(document.querySelector('.page-header'));
+    updateScrubberLabels(data.years);
+    initPlayer(data);
+    updateCrumb();
+    toast('Macro analysis loaded', 'success');
+    document.getElementById('status-text').textContent = `Scenario: ${window.SIM.scenario} · Press ▶ Play to animate`;
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+function renderCharts(data) {
+  const years = data.years;
+  if (cGDP) cGDP.destroy();
+  cGDP = areaChart('chart-gdp', [{ name:'GDP (T$)', data:data.gdp }], years, '', { showLegend: false });
+  if (cGini) cGini.destroy();
+  cGini = lineChart('chart-gini', [{ name:'Gini', data:data.gini }], years, '', v => (+v).toFixed(3), { showLegend: false });
+  if (cWages) cWages.destroy();
+  cWages = lineChart('chart-wages',
+    Object.keys(data.wages).map(k => ({ name: SKILL_LABELS[k]||k, data: data.wages[k] })),
+    years, '', v => '$' + (+v).toLocaleString());
+  if (cSpend) cSpend.destroy();
+  cSpend = areaChart('chart-spending', [{ name:'Spending (T$)', data:data.consumer_spending }], years, '', { showLegend: false });
+}
+
+function initPlayer(data) {
+  if (player) { player.seekTo(data.years.length - 1); return; }
+  const wageKeys = Object.keys(data.wages);
+  player = createPlayer({
+    getData: () => currentData,
+    total: data.years.length,
+    onTick: ({ progress, data }) => {
+      const jobsV = valueAt(data.total_jobs,  progress);
+      const unemV = valueAt(data.unemployment, progress);
+      const gdpV  = valueAt(data.gdp,          progress);
+      const aiV   = valueAt(data.ai_adoption,  progress);
+      document.getElementById('kpi-jobs').innerHTML = fmt.jobs(jobsV);
+      document.getElementById('kpi-unem').innerHTML = unemV.toFixed(2) + '<span class="unit">%</span>';
+      document.getElementById('kpi-gdp').innerHTML  = '$' + gdpV.toFixed(1) + '<span class="unit">T</span>';
+      document.getElementById('kpi-ai').innerHTML   = aiV.toFixed(1) + '<span class="unit">%</span>';
+
+      if (cGDP)   cGDP.updateSeries([{ name:'GDP (T$)', data: growSeries(data.gdp, progress) }], false);
+      if (cGini)  cGini.updateSeries([{ name:'Gini',   data: growSeries(data.gini, progress) }], false);
+      if (cSpend) cSpend.updateSeries([{ name:'Spending (T$)', data: growSeries(data.consumer_spending, progress) }], false);
+      if (cWages) cWages.updateSeries(
+        wageKeys.map(k => ({ name: SKILL_LABELS[k]||k, data: growSeries(data.wages[k], progress) })),
+        false
+      );
+    },
+  });
+  requestAnimationFrame(() => player.seekTo(data.years.length - 1));
+}
+
+function populateWageTable(data) {
+  const tbody = document.getElementById('wage-table-body');
+  const lastIdx = data.wages[Object.keys(data.wages)[0]].length - 1;
+  tbody.innerHTML = Object.keys(data.wages).map(k => {
+    const final = data.wages[k][lastIdx];
+    const base  = BASE_WAGES[k] || 50000;
+    const delta = final - base;
+    const pct   = ((delta / base) * 100).toFixed(1);
+    const color = delta >= 0 ? 'var(--accent)' : 'var(--danger)';
+    return `<tr>
+      <td>${SKILL_LABELS[k]||k}</td>
+      <td><strong>$${Math.round(final).toLocaleString()}</strong></td>
+      <td>$${base.toLocaleString()}</td>
+      <td style="color:${color}">${delta>=0?'+':''}$${Math.round(delta).toLocaleString()}</td>
+      <td style="color:${color}">${delta>=0?'+':''}${pct}%</td>
+    </tr>`;
+  }).join('');
+}
+
+window.addEventListener('DOMContentLoaded', runMacro);
+</script>
+</body>
+</html>
