@@ -184,15 +184,23 @@ def sensitivity_endpoint(scenario: str = "moderate", country: str = "WLD"):
 
 
 @app.get("/api/validate")
-def validate_endpoint(start: int = 2000, end: int = 2020):
+def validate_endpoint(start: int = 2000, end: int = 2020,
+                       adoption_speed: float = 1.0,
+                       automation_rate: Optional[float] = None):
     """Backtest the model against World Bank data over a configurable range.
 
-    Defaults remain 2000–2020. Frontend can pass ?start=2005&end=2018 etc.
+    Args:
+      start, end        — year range for the backtest (defaults 2000–2020)
+      adoption_speed    — multiplies historical AI rollout speed; lets users
+                          see how their slider value affects the predicted line
+      automation_rate   — overrides displacement rate (5..12 percent OR fraction)
     """
     if end <= start:
         raise HTTPException(400, "end must be after start")
     try:
-        return validate(start, end)
+        return validate(start, end,
+                        adoption_speed=adoption_speed,
+                        automation_rate=automation_rate)
     except Exception as e:
         raise HTTPException(500, f"Validation error: {e}")
 

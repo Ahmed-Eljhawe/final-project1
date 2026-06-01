@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Labor Market Simulation — Validation</title>
-<link rel="stylesheet" href="style.css?v=14"/>
+<link rel="stylesheet" href="style.css?v=15"/>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 </head>
 <body>
@@ -157,15 +157,21 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 <script>
 let cVal, cMC;
 
 async function runValidation() {
   showLoading('Running backtest…');
   try {
+    // Pass the user's current settings so the predicted curve responds to them.
+    // The backtest interprets them as "what if AI had rolled out at this speed
+    // historically" — useful to show how the prediction shifts with the slider.
+    const valURL = `/api/validate?adoption_speed=${window.SIM.adoptionSpeed}` +
+                   (window.SIM.automationRateOverride
+                      ? `&automation_rate=${window.SIM.automationRate}` : '');
     const [valData, simData] = await Promise.all([
-      apiFetch('/api/validate'),
+      apiFetch(valURL),
       apiFetch(window.simURL(window.SIM.scenario)),
     ]);
     window.SIM.data = simData;
@@ -331,6 +337,20 @@ document.addEventListener('DOMContentLoaded', () => {
     vl.textContent = sl.value;
     if (typeof updateSliderFill === 'function') updateSliderFill(sl);
   }
+
+  // Re-run validation automatically (with a debounce) when the user moves the
+  // AI Adoption Speed or Horizon slider on the validation page, so the predicted
+  // curve responds without forcing a Run-button click.
+  let debounce;
+  ['slider-ai', 'slider-horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runValidation, 400);  // 400 ms after slider settles
+    });
+  });
+
   loadModels();
   runValidation();
 });

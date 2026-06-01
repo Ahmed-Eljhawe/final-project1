@@ -429,24 +429,44 @@ def fetch_world_bank_unemployment(start: int = 2000, end: int = 2020) -> Dict[st
     return {"years": years, "values": values}
 
 
-def validate(start: int = 2000, end: int = 2020) -> Dict[str, Any]:
+def validate(start: int = 2000, end: int = 2020,
+             adoption_speed: float = 1.0,
+             automation_rate: Optional[float] = None) -> Dict[str, Any]:
     """Backtest: run the model from `start` and compare against real unemployment.
+
+    Now responds to the user's settings:
+      • adoption_speed  — multiplies the historical-rollout speed (default 0.6).
+                          Lets the user ask "what if AI had rolled out faster
+                          back then?" and see how the predicted curve shifts.
+      • automation_rate — overrides the per-year displacement rate (default 0.05).
 
     Uses historically-grounded 2000 baseline numbers:
       • World labor force in 2000: ~2.7 billion (WB SL.TLF.TOTL.IN)
-      • Unemployment rate 2000: 5.4% → employment ≈ 2.554 billion
-    Previously used 120M/130M which was off by ~23×, producing absurd
-    predictions (~24% unemployment vs actual ~6%).
+      • Unemployment rate 2000: ~5.4% → employment ≈ 2.554 billion
     """
     real = fetch_world_bank_unemployment(start, end)
     actual = real["values"]
     years  = real["years"]
 
     # Historically-grounded baseline (calibrated to year=`start`).
-    # If start != 2000, scale gently — workforce grew ~0.8%/yr.
     years_offset = max(0, start - 2000)
-    base_workforce = 2_700_000_000.0 * ((1.0 + WORKFORCE_GROWTH) ** years_offset)
+    base_workforce  = 2_700_000_000.0 * ((1.0 + WORKFORCE_GROWTH) ** years_offset)
     base_employment = base_workforce * (1.0 - (actual[0] if actual else 5.4) / 100.0)
+
+    # Resolve effective parameters from user settings.
+    # Historical baseline: speed=0.6, cap=0.15 (AI was nearly absent pre-2010).
+    # Both the speed AND the cap scale with the user's adoption_speed slider,
+    # so the predicted curve visibly shifts when the user moves the slider —
+    # not just at the start of the curve but at the endpoint too.
+    spd = float(adoption_speed)
+    effective_speed = 0.6 * spd
+    # Cap = 15% × speed, clamped to [0.05, 0.50] so extremes stay defensible
+    effective_cap   = max(0.05, min(0.50, 0.15 * spd))
+
+    auto_rate = float(automation_rate) if automation_rate is not None else 0.05
+    # If the user passes the slider value as a percent (5..12), convert.
+    if auto_rate > 1.0:
+        auto_rate /= 100.0
 
     state = {
         "total_jobs":  base_employment,
@@ -455,14 +475,13 @@ def validate(start: int = 2000, end: int = 2020) -> Dict[str, Any]:
     }
     predicted = []
     for i, _ in enumerate(years):
-        # Historical AI adoption was effectively zero pre-2010 and only
-        # ~5% by 2020. Very strong dampening to reflect that reality.
-        state["ai_adoption"] = ai_adoption(i, speed=0.6) * 0.15
+        state["ai_adoption"] = ai_adoption(i, speed=effective_speed, cap=effective_cap)
         adoption = state["ai_adoption"]
-        lost     = state["total_jobs"] * 0.05 * adoption
-        created  = lost * JOB_CREATION_RATIO
-        # Add natural (non-AI) job creation tracking workforce growth.
-        natural_growth = state["total_jobs"] * WORKFORCE_GROWTH * 0.97
+        lost    = state["total_jobs"] * auto_rate * adoption
+        created = lost * JOB_CREATION_RATIO
+        # Natural (non-AI) job creation closely tracks workforce growth so that
+        # without AI displacement, unemployment stays near its starting value.
+        natural_growth = state["total_jobs"] * WORKFORCE_GROWTH * 0.99
         state["total_jobs"] = max(0.0, state["total_jobs"] - lost + created + natural_growth)
         state["workforce"] *= (1.0 + WORKFORCE_GROWTH)
         unem = max(0.0, (state["workforce"] - state["total_jobs"]) / state["workforce"]) * 100
@@ -476,6 +495,8 @@ def validate(start: int = 2000, end: int = 2020) -> Dict[str, Any]:
         "mae":       round(mae, 4),
         "accuracy":  round(max(0.0, 100.0 - mae * 10.0), 2),
         "label":     f"Model Backtest {start}-{end}",
+        "adoption_speed":  adoption_speed,
+        "automation_rate": auto_rate,
     }
 
 
