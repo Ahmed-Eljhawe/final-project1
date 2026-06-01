@@ -193,7 +193,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script>
 let chartUnem, chartGDP, chartSkills, chartSector;
 let player = null;
@@ -283,7 +283,9 @@ function initPlayer(data) {
   // Only build the player ONCE — re-running Run shouldn't add duplicate event listeners.
   // Subsequent runs just update currentData (the player reads it via closure).
   if (player) {
-    // Reset player UI to the end so the new data's final state shows.
+    // The data may have grown (e.g. horizon 20 → 30). Update the player's
+    // internal length before seeking so the scrubber + onTick math is correct.
+    player.setTotal(data.years.length);
     player.seekTo(data.years.length - 1);
     return;
   }

@@ -136,7 +136,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script>
 let cGDP, cGini, cWages, cSpend;
 let player = null;
@@ -181,7 +181,11 @@ function renderCharts(data) {
 }
 
 function initPlayer(data) {
-  if (player) { player.seekTo(data.years.length - 1); return; }
+  if (player) {
+    player.setTotal(data.years.length);
+    player.seekTo(data.years.length - 1);
+    return;
+  }
   const wageKeys = Object.keys(data.wages);
   player = createPlayer({
     getData: () => currentData,

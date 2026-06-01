@@ -128,7 +128,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script>
 let cLines, cBar, cDonut;
 let player = null;
@@ -163,7 +163,11 @@ async function runSector() {
 }
 
 function initPlayer(data) {
-  if (player) { player.seekTo(data.years.length - 1); return; }
+  if (player) {
+    player.setTotal(data.years.length);
+    player.seekTo(data.years.length - 1);
+    return;
+  }
   const names = Object.keys(data.sectors);
   player = createPlayer({
     getData: () => currentData,

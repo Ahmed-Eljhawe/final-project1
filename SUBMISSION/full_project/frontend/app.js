@@ -340,14 +340,26 @@ function createPlayer({ getData, onTick, total }) {
     pill:      document.getElementById('state-pill'),
   };
 
-  // Build tick marks
-  if (els.ticks) {
+  // Build tick marks (extracted into a function so we can rebuild when total changes)
+  function rebuildTicks() {
+    if (!els.ticks) return;
     els.ticks.innerHTML = '';
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < state.total; i++) {
       const t = document.createElement('div');
       t.className = 'scrubber-tick';
       els.ticks.appendChild(t);
     }
+  }
+  rebuildTicks();
+
+  // Allow the caller to change the horizon after the player exists (e.g. when
+  // the user moves the Horizon slider and the data array grows from 20 to 30).
+  // Without this the player would keep clamping seekTo to oldTotal-1 and the
+  // grow-from-old-data closures would render only 20 of the new 30 bars.
+  function setTotal(n) {
+    if (!Number.isFinite(n) || n < 1) return;
+    state.total = n;
+    rebuildTicks();
   }
 
   function setPill(label, cls) {
@@ -486,7 +498,7 @@ function createPlayer({ getData, onTick, total }) {
   // NOTE: do NOT auto-render here. The page decides where to start — typically
   // at the end (so charts show full curves after Run, then Play "rewinds" and
   // animates). Calling seekTo(0) or seekTo(total-1) from the caller renders.
-  return { play, pause, reset, seekTo, render, getState: () => state };
+  return { play, pause, reset, seekTo, render, setTotal, getState: () => state };
 }
 
 /* ──────────────────────────────────────────────────────────

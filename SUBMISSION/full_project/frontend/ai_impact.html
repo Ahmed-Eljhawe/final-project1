@@ -133,7 +133,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script>
 let cSCurve, cProd, cOxford, cDelta, cSpeed;
 let player = null;
@@ -165,19 +165,27 @@ async function runAIPage() {
 }
 
 function initPlayer(data) {
-  if (player) { player.seekTo(data.years.length - 1); return; }
-  const prod = productivityFromAdoption(data.ai_adoption);
-  // Use the scenario's actual automation rate + actual per-year total jobs
-  // (no hardcoded 0.05 or 150e6 fallback that ignores the scenario).
-  const autoRate = (data.automation_rate != null) ? data.automation_rate : 0.05;
-  const jobsLost = data.ai_adoption.map((a, i) =>
-    +((data.total_jobs[i] || 0) * autoRate * (a/100) / 1e6).toFixed(2));
-  const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
+  if (player) {
+    player.setTotal(data.years.length);
+    player.seekTo(data.years.length - 1);
+    return;
+  }
 
   player = createPlayer({
     getData: () => currentData,
     total: data.years.length,
     onTick: ({ progress, data }) => {
+      // CRITICAL: recompute productivity / jobsLost / jobsCreated INSIDE onTick
+      // from the current `data` argument. Capturing them in the outer closure
+      // freezes them to the data length at player-creation time — when the
+      // user later moves Horizon to 30, the chart x-axis shows 30 years but
+      // these arrays still have 20 entries, so the bars run out at year 21.
+      const prod = productivityFromAdoption(data.ai_adoption);
+      const autoRate = (data.automation_rate != null) ? data.automation_rate : 0.05;
+      const jobsLost = data.ai_adoption.map((a, i) =>
+        +((data.total_jobs[i] || 0) * autoRate * (a/100) / 1e6).toFixed(2));
+      const jobsCreated = jobsLost.map(v => +(v * 0.6).toFixed(2));
+
       const jobsV = valueAt(data.total_jobs,  progress);
       const unemV = valueAt(data.unemployment, progress);
       const gdpV  = valueAt(data.gdp,          progress);
