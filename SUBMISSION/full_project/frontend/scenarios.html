@@ -144,7 +144,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 <script>
 let cUnem, cGDP, cAI, cGini;
 
@@ -232,7 +232,24 @@ function populateTable(slow, mod, rapid) {
   ).join('');
 }
 
-window.addEventListener('DOMContentLoaded', runScenarios);
+window.addEventListener('DOMContentLoaded', () => {
+  runScenarios();
+  // Debounced auto-rerun on slider/select changes
+  let debounce;
+  ['slider-ai', 'slider-horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runScenarios, 400);
+    });
+  });
+  const cs = document.getElementById('select-country');
+  if (cs) cs.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runScenarios, 200);
+  });
+});
 </script>
 </body>
 </html>

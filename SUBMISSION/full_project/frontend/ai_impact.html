@@ -133,7 +133,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 <script>
 let cSCurve, cProd, cOxford, cDelta, cSpeed;
 let player = null;
@@ -250,7 +250,28 @@ function renderCharts(data) {
   ], years, '', v => v + '%');
 }
 
-window.addEventListener('DOMContentLoaded', runAIPage);
+window.addEventListener('DOMContentLoaded', () => {
+  runAIPage();
+  let debounce;
+  ['slider-ai', 'slider-horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runAIPage, 400);
+    });
+  });
+  const sc = document.getElementById('select-scenario');
+  if (sc) sc.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runAIPage, 200);
+  });
+  const cs = document.getElementById('select-country');
+  if (cs) cs.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runAIPage, 200);
+  });
+});
 </script>
 </body>
 </html>

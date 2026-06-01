@@ -464,8 +464,10 @@ def validate(start: int = 2000, end: int = 2020,
     effective_cap   = max(0.05, min(0.50, 0.15 * spd))
 
     auto_rate = float(automation_rate) if automation_rate is not None else 0.05
-    # If the user passes the slider value as a percent (5..12), convert.
-    if auto_rate > 1.0:
+    # If the user passes the slider value as a percent (1..12), convert to fraction.
+    # NOTE: use >= 1.0 so slider's minimum (1%) is correctly divided. Strict > 1.0
+    # would leave value=1 as literally 1.0 (= 100% automation per year — bogus).
+    if auto_rate >= 1.0:
         auto_rate /= 100.0
 
     state = {

@@ -136,7 +136,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 <script>
 let cGDP, cGini, cWages, cSpend;
 let player = null;
@@ -228,7 +228,28 @@ function populateWageTable(data) {
   }).join('');
 }
 
-window.addEventListener('DOMContentLoaded', runMacro);
+window.addEventListener('DOMContentLoaded', () => {
+  runMacro();
+  let debounce;
+  ['slider-ai', 'slider-horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runMacro, 400);
+    });
+  });
+  const sc = document.getElementById('select-scenario');
+  if (sc) sc.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runMacro, 200);
+  });
+  const cs = document.getElementById('select-country');
+  if (cs) cs.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runMacro, 200);
+  });
+});
 </script>
 </body>
 </html>

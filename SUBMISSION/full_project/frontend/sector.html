@@ -128,7 +128,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 <script>
 let cLines, cBar, cDonut;
 let player = null;
@@ -244,7 +244,28 @@ function populateRiskTable(data) {
   }).join('');
 }
 
-window.addEventListener('DOMContentLoaded', runSector);
+window.addEventListener('DOMContentLoaded', () => {
+  runSector();
+  let debounce;
+  ['slider-ai', 'slider-horizon'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runSector, 400);
+    });
+  });
+  const sc = document.getElementById('select-scenario');
+  if (sc) sc.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runSector, 200);
+  });
+  const cs = document.getElementById('select-country');
+  if (cs) cs.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runSector, 200);
+  });
+});
 </script>
 </body>
 </html>

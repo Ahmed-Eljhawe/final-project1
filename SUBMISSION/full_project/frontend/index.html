@@ -193,7 +193,7 @@
 </div>
 <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 <script>
 let chartUnem, chartGDP, chartSkills, chartSector;
 let player = null;
@@ -338,6 +338,23 @@ function initPlayer(data) {
 window.addEventListener('DOMContentLoaded', () => {
   // Auto-run on load
   runSimulation();
+
+  // Auto-rerun after the user finishes dragging any sidebar control,
+  // so the chart reflects the new settings without forcing a Run click.
+  let debounce;
+  ['slider-ai', 'slider-horizon', 'slider-automation'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(runSimulation, 400);
+    });
+  });
+  const sc = document.getElementById('select-scenario');
+  if (sc) sc.addEventListener('change', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(runSimulation, 200);
+  });
 });
 </script>
 </body>

@@ -126,8 +126,11 @@ def simulate(scenario: str, horizon: int = 20,
     if scenario not in {"slow", "moderate", "rapid"}:
         raise HTTPException(400, f"Invalid scenario '{scenario}'. Use slow|moderate|rapid.")
     try:
-        # Sliders typically pass a 1-12 percent value; convert if needed.
-        if automation_rate is not None and automation_rate > 1.0:
+        # Sliders pass a 1-12 percent value; convert to fraction.
+        # NOTE: use >= 1.0 so slider's minimum (1%) is correctly divided.
+        # The previous strict > 1.0 left value=1 as literally 1.0 (100% automation),
+        # which destroyed every job each year and produced bogus ~95% unemployment.
+        if automation_rate is not None and automation_rate >= 1.0:
             automation_rate = automation_rate / 100.0
         results = run_scenario(scenario, horizon=horizon,
                                adoption_speed=adoption_speed, country=country,
